@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Image Processing App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/lib/Sortable.min.js"></script>
+</head>
+
+<body>
+    <h1>Image Processing App</h1>
+    <div class="main">
+        <div class="canvas-area">
+            <div class="canvas-toolbar">
+                <button onclick="fitToWindow()">Fit</button>
+                <button onclick="originalSize()">等倍</button>
+                <button onclick="zoomIn()">拡大</button>
+                <button onclick="zoomOut()">縮小</button>
+                <button onclick="toggleImage()">元画像 / 処理後</button>
+                <button onclick="saveResult()" class="success">保存</button>
+            </div>
+            <canvas id="canvas"></canvas>
+            <div id="status" class="status" style="display:none"></div>
+        </div>
+
+        <div class="panel">
+            <section>
+                <label><b>画像ファイル</b></label><br>
+                <input type="file" accept="image/*" onchange="uploadImage(this.files[0])">
+            </section>
+
+            <section>
+                <b>処理を追加</b>
+                <div class="proc-grid">
+                    <button onclick="addProc('r')">R抽出</button>
+                    <button onclick="addProc('g')">G抽出</button>
+                    <button onclick="addProc('b')">B抽出</button>
+                    <button onclick="addProc('gray')">Gray変換</button>
+                    <button onclick="addProc('h')">H抽出</button>
+                    <button onclick="addProc('l')">L抽出</button>
+                    <button onclick="addProc('s')">S抽出</button>
+                    <button onclick="addProc('invert')">反転</button>
+                    <button onclick="addProc('equalize')">ヒストグラム平滑化</button>
+                    <button onclick="addProc('clahe',{clip_limit:2.0,tile:8})">適応ヒストグラム平滑化</button>
+                    <button onclick="addProc('gaussian',{kernel:5})">平滑化</button>
+                    <button onclick="addProc('median',{kernel:5})">メディアン</button>
+                    <button onclick="addProc('bilateral',{kernel:5})">バイラテラル</button>
+                    <button onclick="addProc('threshold',{value:127})">二値化</button>
+                    <button onclick="addProc('adaptive_threshold',{block:11,c:2,otsu:false})">適応二値化</button>
+                    <button onclick="addProc('opening',{kernel:3})">オープニング</button>
+                    <button onclick="addProc('closing',{kernel:3})">クロージング</button>
+                    <button onclick="addProc('dilate',{kernel:3,iterations:1})">膨張</button>
+                    <button onclick="addProc('erode',{kernel:3,iterations:1})">縮小</button>
+                    <button onclick="addProc('morphology',{kernel:3})">モルフォロジー勾配</button>
+                    <button onclick="addProc('top_hat',{kernel:3})">トップハット</button>
+                    <button onclick="addProc('black_hat',{kernel:3})">ブラックハット</button>
+                    <button onclick="addProc('sobel',{kernel:3,x:true,y:true})">Sobel</button>
+                    <button onclick="addProc('laplacian',{kernel:3})">Laplacian</button>
+                    <button onclick="addProc('scharr',{direction:'x'})">Scharr</button>
+                    <button onclick="addProc('canny',{low:100,high:200})">Canny</button>
+                    <button onclick="addProc('fill_holes')">穴埋め</button>
+                    <button onclick="addProc('remove_border')">境界ブロブ除去</button>
+                    <button
+                        onclick="addProc('watershed',{kernel:3,opening_iterations:2,dilation_iterations:3,distance_transform:5})">ウォーターシェッド</button>
+                    <button
+                        onclick="addProc('blob',{filter_area:true,min_area:100,max_area:1000000,filter_circularity:false,min_circularity:0.5,filter_convexity:false,min_convexity:0.8,filter_inertia:false,min_inertia:0.1,filter_color:false,blob_color:0,filter_side:false,min_long_side:1,max_short_side:1000000,filter_angle:false,min_angle:-180,max_angle:180})">ブロブ解析</button>
+                </div>
+            </section>
+
+            <section>
+                <b>パイプライン</b>
+                <div id="pipeline"></div>
+                <button onclick="runPipeline()" class="success">実行</button>
+            </section>
+
+            <section id="blob-section" style="display:none">
+                <b>ブロブ一覧</b>
+                <button onclick="saveBlobCsv()" class="success">CSV保存</button>
+                <div id="blob-list"></div>
+            </section>
+        </div>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
