@@ -13,6 +13,7 @@ PROCESSORS = {
     "l": l_channel,
     "s": s_channel,
     "invert": invert,
+    "resize": resize,
     "equalize": histogram_equalization,
     "clahe": clahe,
     "gaussian": gaussian,

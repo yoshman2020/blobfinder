@@ -22,9 +22,11 @@
                 <button onclick="saveResult()" class="success">保存</button>
             </div>
             <canvas id="canvas"></canvas>
+            <div id="img-info" class="img-info"></div>
             <div id="status" class="status" style="display:none"></div>
         </div>
 
+        <div id="resize-handle"></div>
         <div class="panel">
             <section>
                 <label><b>画像ファイル</b></label><br>
@@ -42,6 +44,7 @@
                     <button onclick="addProc('l')">L抽出</button>
                     <button onclick="addProc('s')">S抽出</button>
                     <button onclick="addProc('invert')">反転</button>
+                    <button onclick="addProc('resize',{width:0,height:0,scale:1.0})">リサイズ</button>
                     <button onclick="addProc('equalize')">ヒストグラム平滑化</button>
                     <button onclick="addProc('clahe',{clip_limit:2.0,tile:8})">適応ヒストグラム平滑化</button>
                     <button onclick="addProc('gaussian',{kernel:5})">平滑化</button>
@@ -65,7 +68,7 @@
                     <button
                         onclick="addProc('watershed',{kernel:3,opening_iterations:2,dilation_iterations:3,distance_transform:5})">ウォーターシェッド</button>
                     <button
-                        onclick="addProc('blob',{filter_area:true,min_area:100,max_area:1000000,filter_circularity:false,min_circularity:0.5,filter_convexity:false,min_convexity:0.8,filter_inertia:false,min_inertia:0.1,filter_color:false,blob_color:0,filter_side:false,min_long_side:1,max_short_side:1000000,filter_angle:false,min_angle:-180,max_angle:180})">ブロブ解析</button>
+                        onclick="addProc('blob',{filter_area:true,min_area:100,max_area:1000000,filter_circularity:false,min_circularity:0.5,filter_convexity:false,min_convexity:0.8,filter_inertia:false,min_inertia:0.1,filter_color:false,blob_color:0,filter_side:false,min_long_side:1,max_short_side:1000000,filter_angle:false,min_angle:-180,max_angle:180,filter_centroid:false,min_cx:0,max_cx:99999,min_cy:0,max_cy:99999})">ブロブ解析</button>
                 </div>
             </section>
 

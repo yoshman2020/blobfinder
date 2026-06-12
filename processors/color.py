@@ -53,3 +53,20 @@ def invert(img, params, **kwargs):
         out[:, :, 2] = cv2.bitwise_not(img[:, :, 2])
         return out
     return cv2.bitwise_not(img)
+
+
+def resize(img, params, **kwargs):
+    w = int(params.get("width", 0))
+    h = int(params.get("height", 0))
+    scale = float(params.get("scale", 1.0))
+    if w > 0 and h > 0:
+        return cv2.resize(img, (w, h))
+    if w > 0:
+        h = int(img.shape[0] * w / img.shape[1])
+        return cv2.resize(img, (w, h))
+    if h > 0:
+        w = int(img.shape[1] * h / img.shape[0])
+        return cv2.resize(img, (w, h))
+    if scale != 1.0:
+        return cv2.resize(img, None, fx=scale, fy=scale)
+    return img

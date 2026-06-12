@@ -9,10 +9,12 @@ let canvas, ctx;
 let originalImage = null, processedImage = null;
 let blobData = [];
 let selectedBlobId = null;
+let regionSelect = null;   // {stepIndex, startX, startY, endX, endY} | null
+let regionDragging = false;
 
 const PROC_LABELS = {
     r: "R抽出", g: "G抽出", b: "B抽出", gray: "Gray変換",
-    h: "H抽出", l: "L抽出", s: "S抽出", invert: "反転",
+    h: "H抽出", l: "L抽出", s: "S抽出", invert: "反転", resize: "リサイズ",
     equalize: "ヒストグラム平滑化", clahe: "適応ヒストグラム平滑化",
     gaussian: "平滑化", median: "メディアン", bilateral: "バイラテラル",
     threshold: "二値化", adaptive_threshold: "適応二値化",
@@ -82,6 +84,11 @@ const PARAM_DEFS = {
             ]
         }
     ],
+    resize: [
+        { key: "width", label: "W(px)", type: "number", step: 1, min: 0 },
+        { key: "height", label: "H(px)", type: "number", step: 1, min: 0 },
+        { key: "scale", label: "倍率", type: "number", step: 0.1, min: 0.1 },
+    ],
     blob: [
         { key: "filter_area", label: "面積フィルタ", type: "checkbox" },
         { key: "min_area", label: "最小面積", type: "number", step: 1, min: 0 },
@@ -100,6 +107,12 @@ const PARAM_DEFS = {
         { key: "filter_angle", label: "角度フィルタ", type: "checkbox" },
         { key: "min_angle", label: "最小角度", type: "number", step: 1, min: -180, max: 180 },
         { key: "max_angle", label: "最大角度", type: "number", step: 1, min: -180, max: 180 },
+        { key: "filter_centroid", label: "重心XYフィルタ", type: "checkbox" },
+        { key: "min_cx", label: "最小X", type: "number", step: 1, min: 0 },
+        { key: "max_cx", label: "最大X", type: "number", step: 1, min: 0 },
+        { key: "min_cy", label: "最小Y", type: "number", step: 1, min: 0 },
+        { key: "max_cy", label: "最大Y", type: "number", step: 1, min: 0 },
+        { key: "_select_region", label: "領域をマウスで選択", type: "region_select" },
     ],
 };
 
@@ -131,6 +144,22 @@ function draw() {
         }
     }
     ctx.restore();
+    // 領域選択矩形の表示
+    if (regionSelect) {
+        const r = regionSelect;
+        const x1 = r.startX * zoom + offsetX;
+        const y1 = r.startY * zoom + offsetY;
+        const x2 = r.endX   * zoom + offsetX;
+        const y2 = r.endY   * zoom + offsetY;
+        ctx.save();
+        ctx.strokeStyle = "#f90";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
+        ctx.fillStyle = "rgba(255,153,0,0.08)";
+        ctx.fillRect(Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
+        ctx.restore();
+    }
 }
 
 function fitToWindow() {
@@ -228,8 +257,8 @@ function saveResult() {
 
 function saveBlobCsv() {
     if (!blobData.length) return;
-    const cols  = ["id", "cx", "cy", "area", "circularity", "convexity", "inertia_ratio", "perimeter", "rect_long", "rect_short"];
-    const heads = ["#",  "X",  "Y",  "面積", "真円度",       "凸度",      "慣性比",        "周囲長",     "長辺",       "短辺"];
+    const cols = ["id", "cx", "cy", "area", "circularity", "convexity", "inertia_ratio", "perimeter", "rect_long", "rect_short"];
+    const heads = ["#", "X", "Y", "面積", "真円度", "凸度", "慣性比", "周囲長", "長辺", "短辺"];
     const rows = [heads.join(",")];
     blobData.forEach(b => {
         rows.push(cols.map(k => b[k] !== undefined ? b[k] : "").join(","));
@@ -278,6 +307,8 @@ function renderPipeline() {
                         ${def.options.map(opt => `<option value="${opt.value}" ${opt.value === val ? "selected" : ""}>${opt.label}</option>`).join("")}
                     </select>
                 </label> `;
+            } else if (def.type === "region_select") {
+                paramsHtml += `<button type="button" onclick="startRegionSelect(${i})" style="margin-top:4px;font-size:11px">📌 領域をマウスで選択</button>`;
             } else {
                 paramsHtml += `<label>${def.label}:
                     <input type="number" value="${val}"
@@ -309,8 +340,8 @@ function renderBlobList(blobs) {
         return;
     }
     section.style.display = "";
-    const cols  = ["id", "cx", "cy", "area", "circularity", "convexity", "inertia_ratio", "perimeter", "rect_long", "rect_short"];
-    const heads = ["#",  "X",  "Y",  "面積", "真円度",       "凸度",      "慣性比",        "周囲長",     "長辺",       "短辺"];
+    const cols = ["id", "cx", "cy", "area", "circularity", "convexity", "inertia_ratio", "perimeter", "rect_long", "rect_short"];
+    const heads = ["#", "X", "Y", "面積", "真円度", "凸度", "慣性比", "周囲長", "長辺", "短辺"];
 
     let sorted = [...blobs];
     if (blobSortCol !== null) {
@@ -359,6 +390,35 @@ function selectBlob(id) {
     draw();
 }
 
+function startRegionSelect(stepIndex) {
+    regionSelect = { stepIndex, startX: 0, startY: 0, endX: 0, endY: 0 };
+    regionDragging = false;
+    canvas.style.cursor = "crosshair";
+}
+
+function canvasToImage(cx, cy) {
+    return { x: (cx - offsetX) / zoom, y: (cy - offsetY) / zoom };
+}
+
+function updateImgInfo(e) {
+    const rect = canvas.getBoundingClientRect();
+    const img = showingOriginal ? originalImage : (processedImage || originalImage);
+    if (!img) return;
+    const { x, y } = canvasToImage(e.clientX - rect.left, e.clientY - rect.top);
+    const ix = Math.round(x), iy = Math.round(y);
+    const w = img.naturalWidth, h = img.naturalHeight;
+    let rgbStr = "";
+    if (ix >= 0 && iy >= 0 && ix < w && iy < h) {
+        const tmp = document.createElement("canvas");
+        tmp.width = w; tmp.height = h;
+        tmp.getContext("2d").drawImage(img, 0, 0);
+        const px = tmp.getContext("2d").getImageData(ix, iy, 1, 1).data;
+        rgbStr = `  R:${px[0]} G:${px[1]} B:${px[2]}`;
+    }
+    document.getElementById("img-info").textContent =
+        `${w} x ${h}px  |  X:${ix} Y:${iy}${rgbStr}`;
+}
+
 function updateParam(index, key, value) {
     const def = (PARAM_DEFS[pipeline[index].type] || []).find(d => d.key === key);
     if (def && def.type === "checkbox") {
@@ -383,10 +443,43 @@ window.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
 
-    canvas.addEventListener("mousedown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
-    canvas.addEventListener("mouseup", () => { dragging = false; });
+    canvas.addEventListener("mousedown", e => {
+        const rect = canvas.getBoundingClientRect();
+        const pos = canvasToImage(e.clientX - rect.left, e.clientY - rect.top);
+        if (regionSelect) {
+            regionDragging = true;
+            regionSelect.startX = pos.x; regionSelect.startY = pos.y;
+            regionSelect.endX   = pos.x; regionSelect.endY   = pos.y;
+        } else {
+            dragging = true; lastX = e.clientX; lastY = e.clientY;
+        }
+    });
+    canvas.addEventListener("mouseup", e => {
+        if (regionDragging && regionSelect) {
+            regionDragging = false;
+            canvas.style.cursor = "grab";
+            const si = regionSelect.stepIndex;
+            const x1 = Math.round(Math.min(regionSelect.startX, regionSelect.endX));
+            const x2 = Math.round(Math.max(regionSelect.startX, regionSelect.endX));
+            const y1 = Math.round(Math.min(regionSelect.startY, regionSelect.endY));
+            const y2 = Math.round(Math.max(regionSelect.startY, regionSelect.endY));
+            pipeline[si].params.min_cx = x1; pipeline[si].params.max_cx = x2;
+            pipeline[si].params.min_cy = y1; pipeline[si].params.max_cy = y2;
+            pipeline[si].params.filter_centroid = true;
+            regionSelect = null;
+            renderPipeline();
+        }
+        dragging = false;
+    });
     canvas.addEventListener("mouseleave", () => { dragging = false; });
     canvas.addEventListener("mousemove", e => {
+        updateImgInfo(e);
+        const rect = canvas.getBoundingClientRect();
+        const pos = canvasToImage(e.clientX - rect.left, e.clientY - rect.top);
+        if (regionDragging && regionSelect) {
+            regionSelect.endX = pos.x; regionSelect.endY = pos.y;
+            draw(); return;
+        }
         if (!dragging) return;
         offsetX += e.clientX - lastX;
         offsetY += e.clientY - lastY;
@@ -413,5 +506,31 @@ window.addEventListener("DOMContentLoaded", () => {
             pipeline.splice(evt.newIndex, 0, item);
             renderPipeline();
         }
+    });
+
+    // パネルリサイズ
+    const handle = document.getElementById("resize-handle");
+    const panel = document.querySelector(".panel");
+    let resizing = false;
+    let resizeStartX = 0;
+    let resizeStartW = 0;
+    handle.addEventListener("mousedown", e => {
+        resizing = true;
+        resizeStartX = e.clientX;
+        resizeStartW = panel.offsetWidth;
+        handle.classList.add("dragging");
+        e.preventDefault();
+    });
+    document.addEventListener("mousemove", e => {
+        if (!resizing) return;
+        const delta = resizeStartX - e.clientX;
+        const newW = Math.max(200, Math.min(window.innerWidth - 200, resizeStartW + delta));
+        panel.style.width = newW + "px";
+        resizeCanvas();
+    });
+    document.addEventListener("mouseup", () => {
+        if (!resizing) return;
+        resizing = false;
+        handle.classList.remove("dragging");
     });
 });

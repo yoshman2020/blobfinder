@@ -125,6 +125,14 @@ def blob_analysis(img, params, **kwargs):
         cx = int(M["m10"] / M["m00"])
         cy = int(M["m01"] / M["m00"])
 
+        if params.get("filter_centroid", False):
+            min_cx = float(params.get("min_cx", 0))
+            max_cx = float(params.get("max_cx", 1e9))
+            min_cy = float(params.get("min_cy", 0))
+            max_cy = float(params.get("max_cy", 1e9))
+            if not (min_cx <= cx <= max_cx and min_cy <= cy <= max_cy):
+                continue
+
         # --- rotated rectangle ---
         rect = cv2.minAreaRect(cnt)
         (rx, ry), (w, h), angle = rect
