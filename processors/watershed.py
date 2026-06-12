@@ -17,11 +17,19 @@ def watershed(img, params, **kwargs):
 
     kernel = _kernel(params)
     opening_iterations = int(params.get("opening_iterations", 2))
-    opening_img = cv2.morphologyEx(
-        binary, cv2.MORPH_OPEN, kernel, iterations=opening_iterations
+    opening_img = (
+        cv2.morphologyEx(
+            binary, cv2.MORPH_OPEN, kernel, iterations=opening_iterations
+        )
+        if opening_iterations > 0
+        else binary
     )
     dilation_iterations = int(params.get("dilation_iterations", 3))
-    sure_bg = cv2.dilate(opening_img, kernel, iterations=dilation_iterations)
+    sure_bg = (
+        cv2.dilate(opening_img, kernel, iterations=dilation_iterations)
+        if dilation_iterations
+        else opening_img
+    )
     distance_transform = int(params.get("distance_transform", 5))
     dist = cv2.distanceTransform(opening_img, cv2.DIST_L2, distance_transform)
     _, sure_fg = cv2.threshold(dist, 0.5 * dist.max(), 255, 0)

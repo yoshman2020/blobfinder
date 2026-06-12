@@ -74,8 +74,8 @@ const PARAM_DEFS = {
     ],
     watershed: [
         { key: "kernel", label: "Kernel", type: "number", step: 1, min: 1 },
-        { key: "opening_iterations", label: "オープニング回数", type: "number", step: 1, min: 1 },
-        { key: "dilation_iterations", label: "膨張回数", type: "number", step: 1, min: 1 },
+        { key: "opening_iterations", label: "オープニング回数", type: "number", step: 1, min: 0 },
+        { key: "dilation_iterations", label: "膨張回数", type: "number", step: 1, min: 0 },
         {
             key: "distance_transform", label: "変換距離", type: "select", options: [
                 { value: 3, label: "3" },
@@ -149,15 +149,15 @@ function draw() {
         const r = regionSelect;
         const x1 = r.startX * zoom + offsetX;
         const y1 = r.startY * zoom + offsetY;
-        const x2 = r.endX   * zoom + offsetX;
-        const y2 = r.endY   * zoom + offsetY;
+        const x2 = r.endX * zoom + offsetX;
+        const y2 = r.endY * zoom + offsetY;
         ctx.save();
         ctx.strokeStyle = "#f90";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([4, 3]);
-        ctx.strokeRect(Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
+        ctx.strokeRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
         ctx.fillStyle = "rgba(255,153,0,0.08)";
-        ctx.fillRect(Math.min(x1,x2), Math.min(y1,y2), Math.abs(x2-x1), Math.abs(y2-y1));
+        ctx.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
         ctx.restore();
     }
 }
@@ -449,7 +449,7 @@ window.addEventListener("DOMContentLoaded", () => {
         if (regionSelect) {
             regionDragging = true;
             regionSelect.startX = pos.x; regionSelect.startY = pos.y;
-            regionSelect.endX   = pos.x; regionSelect.endY   = pos.y;
+            regionSelect.endX = pos.x; regionSelect.endY = pos.y;
         } else {
             dragging = true; lastX = e.clientX; lastY = e.clientY;
         }
