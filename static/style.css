@@ -51,6 +51,13 @@ canvas:active {
     cursor: grabbing;
 }
 
+button.btn-stop {
+    background: #6b7280;
+}
+button.btn-stop:hover {
+    background: #4b5563;
+}
+
 /* 情報バー */
 .img-info {
     padding: 3px 8px;
@@ -275,4 +282,21 @@ input[type="file"] {
 .blob-row.selected {
     background: #fef08a;
     font-weight: bold;
+}
+
+/* カメラパラメータテーブル */
+.cam-param-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.cam-param-table td { padding: 2px 2px; font-size: 11px; }
+.cam-param-table input[type=number] {
+    width: 70px; padding: 1px 3px;
+    border: 1px solid #ccc; border-radius: 3px; font-size: 11px;
+}
+
+/* img-info が切れないよう canvas を flex-shrink 対応に */
+.canvas-area canvas {
+    flex: 1 1 0;
+    min-height: 0;
+}
+.img-info {
+    flex-shrink: 0;
 }

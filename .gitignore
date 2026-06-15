@@ -13,3 +13,4 @@ node_modules/
 outputs/
 uploads/
 static/lib/
+*.log

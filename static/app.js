@@ -11,6 +11,8 @@ let blobData = [];
 let selectedBlobId = null;
 let regionSelect = null;   // {stepIndex, startX, startY, endX, endY} | null
 let regionDragging = false;
+let streamImage = null;    // ストリーミング中の現在フレーム
+let _streamTimer = null;
 
 const PROC_LABELS = {
     r: "R抽出", g: "G抽出", b: "B抽出", gray: "Gray変換",
@@ -117,7 +119,7 @@ const PARAM_DEFS = {
 };
 
 function draw() {
-    const img = showingOriginal ? originalImage : (processedImage || originalImage);
+    const img = streamImage || (showingOriginal ? originalImage : (processedImage || originalImage));
     if (!img || !img.complete) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -163,8 +165,8 @@ function draw() {
 }
 
 function fitToWindow() {
-    const img = showingOriginal ? originalImage : (processedImage || originalImage);
-    if (!img) return;
+    const img = streamImage || (showingOriginal ? originalImage : (processedImage || originalImage));
+    if (!img || !img.naturalWidth) return;
     zoom = Math.min(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
     offsetX = (canvas.width - img.naturalWidth * zoom) / 2;
     offsetY = (canvas.height - img.naturalHeight * zoom) / 2;
@@ -195,19 +197,28 @@ function loadImage(url) {
 }
 
 async function uploadImage(file) {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/upload", { method: "POST", body: fd });
-    const data = await res.json();
-    imageId = data.image_id;
-    originalFilename = (data.image_name || file.name).replace(/\.[^.]+$/, "");
-    originalImage = await loadImage(data.image_url);
-    processedImage = null;
-    blobData = [];
-    selectedBlobId = null;
-    renderBlobList([]);
-    showingOriginal = true;
-    fitToWindow();
+    try {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/upload", { method: "POST", body: fd });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || `アップロードエラー (${res.status})`);
+        }
+        const data = await res.json();
+        imageId = data.image_id;
+        originalFilename = (data.image_name || file.name).replace(/\.[^.]+$/, "");
+        originalImage = await loadImage(data.image_url);
+        processedImage = null;
+        blobData = [];
+        selectedBlobId = null;
+        renderBlobList([]);
+        showingOriginal = true;
+        fitToWindow();
+        setStatus("", "");
+    } catch (e) {
+        setStatus("error", "アップロードエラー: " + e.message);
+    }
 }
 
 function setStatus(type, msg) {
@@ -388,6 +399,134 @@ function selectBlob(id) {
         row.classList.toggle("selected", parseInt(row.dataset.id) === selectedBlobId);
     });
     draw();
+}
+
+// =====================
+// Camera
+// =====================
+let _fpsTimer = null;
+
+const CAM_PARAM_LABELS = {
+    width: "Width(px)", height: "Height(px)", fps: "FPS設定",
+    brightness: "明るさ", contrast: "コントラスト", saturation: "彩度",
+    hue: "色相", gain: "ゲイン", exposure: "露光",
+    autofocus: "オートフォーカス", focus: "フォーカス",
+    auto_exposure: "自動露光",
+};
+// チェックボックスで表示するパラメータ
+const CAM_PARAM_CHECKBOX = new Set(["autofocus", "auto_exposure"]);
+
+async function loadCameras() {
+    const res = await fetch("/cameras");
+    const data = await res.json();
+    const sel = document.getElementById("cam-select");
+    sel.innerHTML = "<option value=''>― カメラを選択 ―</option>";
+    data.cameras.forEach(cam => {
+        const opt = document.createElement("option");
+        opt.value = cam.index;
+        opt.textContent = `[${cam.index}] ${cam.name}`;
+        sel.appendChild(opt);
+    });
+    if (data.cameras.length === 0)
+        sel.innerHTML = "<option value=''>カメラなし</option>";
+}
+
+async function startStream() {
+    const idx = document.getElementById("cam-select").value;
+    if (idx === "") return;
+    const res = await fetch(`/camera/open/${idx}`, { method: "POST" });
+    if (!res.ok) { setStatus("error", "カメラを開けませんでした"); return; }
+    // 隠しimgでMJPEGを受け取りcanvasに描画
+    const hidden = new Image();
+    hidden.src = "/camera/stream?t=" + Date.now();
+    let _streamFitted = false;
+    _streamTimer = setInterval(() => {
+        if (hidden.complete && hidden.naturalWidth > 0) {
+            streamImage = hidden;
+            if (!_streamFitted) { _streamFitted = true; fitToWindow(); }
+            else draw();
+        }
+    }, 50);
+    document.getElementById("img-info").textContent = "streaming...";
+    await loadCamParamTable();
+    _fpsTimer = setInterval(async () => {
+        const r = await fetch("/camera/fps");
+        const d = await r.json();
+        document.getElementById("cam-fps").textContent = d.fps + " fps";
+    }, 1000);
+}
+
+async function stopStream() {
+    clearInterval(_fpsTimer);
+    clearInterval(_streamTimer);
+    _fpsTimer = null;
+    _streamTimer = null;
+    streamImage = null;
+    document.getElementById("cam-fps").textContent = "";
+    document.getElementById("cam-params").style.display = "none";
+    await fetch("/camera/close", { method: "POST" });
+    document.getElementById("img-info").textContent = "";
+    draw();
+}
+
+async function captureFrame() {
+    const res = await fetch("/camera/capture", { method: "POST" });
+    if (!res.ok) { setStatus("error", "キャプチャ失敗"); return; }
+    const data = await res.json();
+    await stopStream();
+    imageId = data.image_id;
+    originalFilename = data.image_name.replace(/\.[^.]+$/, "");
+    originalImage = await loadImage(data.image_url);
+    processedImage = null;
+    blobData = []; selectedBlobId = null;
+    renderBlobList([]);
+    showingOriginal = true;
+    fitToWindow();
+    setStatus("", "");
+}
+
+async function loadCamParamTable() {
+    const res = await fetch("/camera/params");
+    if (!res.ok) return;
+    const params = await res.json();
+    const table = document.getElementById("cam-param-table");
+    table.innerHTML = Object.entries(params).map(([k, v]) => {
+        const label = CAM_PARAM_LABELS[k] || k;
+        const unavailable = v === null;
+        if (CAM_PARAM_CHECKBOX.has(k)) {
+            const checked = (!unavailable && v > 0) ? "checked" : "";
+            const dis = unavailable ? "disabled" : "";
+            return `<tr><td style="font-size:11px;padding:2px 4px">${label}</td>`
+                 + `<td><input type="checkbox" id="cparam-${k}" ${checked} ${dis}></td></tr>`;
+        }
+        const val = !unavailable ? v : "";
+        const dis = unavailable ? "disabled" : "";
+        return `<tr><td style="font-size:11px;padding:2px 4px">${label}</td>`
+             + `<td><input type="number" id="cparam-${k}" value="${val}"`
+             + ` style="width:70px;font-size:11px;padding:1px 3px" step="any" ${dis}></td></tr>`;
+    }).join("");
+    document.getElementById("cam-params").style.display = "";
+}
+
+async function applyCamParams() {
+    const table = document.getElementById("cam-param-table");
+    const params = {};
+    table.querySelectorAll("input").forEach(inp => {
+        if (inp.disabled) return;
+        const key = inp.id.replace("cparam-", "");
+        if (inp.type === "checkbox") {
+            params[key] = inp.checked ? 1 : 0;
+        } else if (inp.value !== "") {
+            params[key] = Number(inp.value);
+        }
+    });
+    const res = await fetch("/camera/params", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params)
+    });
+    if (!res.ok) { setStatus("error", "パラメータ適用失敗"); return; }
+    await loadCamParamTable();
 }
 
 function startRegionSelect(stepIndex) {

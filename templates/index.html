@@ -31,6 +31,26 @@
             <section>
                 <label><b>画像ファイル</b></label><br>
                 <input type="file" accept="image/*" onchange="uploadImage(this.files[0])">
+                <div style="margin-top:8px">
+                    <b>カメラ</b>
+                    <button onclick="loadCameras()" style="margin-left:4px">一覧取得</button><br>
+                    <select id="cam-select" style="margin-top:4px;font-size:12px;width:100%">
+                        <option value="">― カメラを選択 ―</option>
+                    </select><br>
+                    <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">
+                        <button onclick="startStream()">ストリーム開始</button>
+                        <button onclick="captureFrame()" class="success">キャプチャ</button>
+                        <button onclick="stopStream()" class="btn-stop">停止</button>
+                        <span id="cam-fps" style="font-size:12px;line-height:26px;color:#16a34a;font-weight:bold"></span>
+                    </div>
+                    <div id="cam-params" style="display:none;margin-top:6px">
+                        <details>
+                            <summary style="cursor:pointer;font-size:12px;font-weight:bold">カメラパラメータ</summary>
+                            <table class="cam-param-table" id="cam-param-table"></table>
+                            <button onclick="applyCamParams()" class="success" style="margin-top:4px">適用</button>
+                        </details>
+                    </div>
+                </div>
             </section>
 
             <section>
