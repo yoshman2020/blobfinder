@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 from scipy import ndimage
 
+from .registry import register
+
 
 def _kernel(params):
     k = int(params.get("kernel", 3))
@@ -15,42 +17,51 @@ def ensure_binary(img):
     return b
 
 
+@register("opening")
 def opening(img, params, **kwargs):
     return cv2.morphologyEx(img, cv2.MORPH_OPEN, _kernel(params))
 
 
+@register("closing")
 def closing(img, params, **kwargs):
     return cv2.morphologyEx(img, cv2.MORPH_CLOSE, _kernel(params))
 
 
+@register("dilate")
 def dilate(img, params, **kwargs):
     itr = int(params.get("iterations", 1))
     return cv2.dilate(img, _kernel(params), iterations=itr)
 
 
+@register("erode")
 def erode(img, params, **kwargs):
     itr = int(params.get("iterations", 1))
     return cv2.erode(img, _kernel(params), iterations=itr)
 
 
+@register("morphology")
 def morphology_gradient(img, params, **kwargs):
     return cv2.morphologyEx(img, cv2.MORPH_GRADIENT, _kernel(params))
 
 
+@register("top_hat")
 def top_hat(img, params, **kwargs):
     return cv2.morphologyEx(img, cv2.MORPH_TOPHAT, _kernel(params))
 
 
+@register("black_hat")
 def black_hat(img, params, **kwargs):
     return cv2.morphologyEx(img, cv2.MORPH_BLACKHAT, _kernel(params))
 
 
+@register("fill_holes")
 def fill_holes(img, params, **kwargs):
     b = ensure_binary(img)
-    filled = ndimage.binary_fill_holes(b // 255).astype(np.uint8) * 255
+    filled = ndimage.binary_fill_holes(b // 255).astype(np.uint8) * 255  # type: ignore
     return filled
 
 
+@register("remove_border")
 def remove_border_blobs(img, params, **kwargs):
     b = ensure_binary(img)
     h, w = b.shape
@@ -58,12 +69,12 @@ def remove_border_blobs(img, params, **kwargs):
     flood = b.copy()
     for x in range(w):
         if flood[0, x] == 255:
-            cv2.floodFill(flood, mask, (x, 0), 0)
+            cv2.floodFill(flood, mask, (x, 0), 0)  # type: ignore
         if flood[h - 1, x] == 255:
-            cv2.floodFill(flood, mask, (x, h - 1), 0)
+            cv2.floodFill(flood, mask, (x, h - 1), 0)  # type: ignore
     for y in range(h):
         if flood[y, 0] == 255:
-            cv2.floodFill(flood, mask, (0, y), 0)
+            cv2.floodFill(flood, mask, (0, y), 0)  # type: ignore
         if flood[y, w - 1] == 255:
-            cv2.floodFill(flood, mask, (w - 1, y), 0)
+            cv2.floodFill(flood, mask, (w - 1, y), 0)  # type: ignore
     return flood

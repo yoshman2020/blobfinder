@@ -11,6 +11,8 @@ wheels/
 
 node_modules/
 outputs/
+lib/
 uploads/
 static/lib/
 *.log
+persist.json

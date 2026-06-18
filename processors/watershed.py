@@ -2,8 +2,10 @@ import cv2
 import numpy as np
 
 from .morphology import _kernel
+from .registry import register
 
 
+@register("watershed")
 def watershed(img, params, **kwargs):
     if len(img.shape) == 2:
         color = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
@@ -34,8 +36,8 @@ def watershed(img, params, **kwargs):
     dist = cv2.distanceTransform(opening_img, cv2.DIST_L2, distance_transform)
     _, sure_fg = cv2.threshold(dist, 0.5 * dist.max(), 255, 0)
     sure_fg = np.uint8(sure_fg)
-    unknown = cv2.subtract(sure_bg, sure_fg)
-    _, markers = cv2.connectedComponents(sure_fg)
+    unknown = cv2.subtract(sure_bg, sure_fg)  # type: ignore
+    _, markers = cv2.connectedComponents(sure_fg)  # type: ignore
     markers = markers + 1
     markers[unknown == 255] = 0
     markers = cv2.watershed(color, markers)

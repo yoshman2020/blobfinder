@@ -417,13 +417,14 @@ const CAM_PARAM_LABELS = {
 const CAM_PARAM_CHECKBOX = new Set(["autofocus", "auto_exposure"]);
 
 async function loadCameras() {
+    setStatus("", "");
     const res = await fetch("/cameras");
     const data = await res.json();
     const sel = document.getElementById("cam-select");
     sel.innerHTML = "<option value=''>― カメラを選択 ―</option>";
     data.cameras.forEach(cam => {
         const opt = document.createElement("option");
-        opt.value = cam.index;
+        opt.value = cam.uid;
         opt.textContent = `[${cam.index}] ${cam.name}`;
         sel.appendChild(opt);
     });
@@ -432,9 +433,10 @@ async function loadCameras() {
 }
 
 async function startStream() {
-    const idx = document.getElementById("cam-select").value;
-    if (idx === "") return;
-    const res = await fetch(`/camera/open/${idx}`, { method: "POST" });
+    setStatus("", "");
+    const uid = document.getElementById("cam-select").value;
+    if (uid === "") return;
+    const res = await fetch(`/camera/open/${uid}`, { method: "POST" });
     if (!res.ok) { setStatus("error", "カメラを開けませんでした"); return; }
     // 隠しimgでMJPEGを受け取りcanvasに描画
     const hidden = new Image();
@@ -470,6 +472,7 @@ async function stopStream() {
 }
 
 async function captureFrame() {
+    setStatus("", "");
     const res = await fetch("/camera/capture", { method: "POST" });
     if (!res.ok) { setStatus("error", "キャプチャ失敗"); return; }
     const data = await res.json();
@@ -497,18 +500,19 @@ async function loadCamParamTable() {
             const checked = (!unavailable && v > 0) ? "checked" : "";
             const dis = unavailable ? "disabled" : "";
             return `<tr><td style="font-size:11px;padding:2px 4px">${label}</td>`
-                 + `<td><input type="checkbox" id="cparam-${k}" ${checked} ${dis}></td></tr>`;
+                + `<td><input type="checkbox" id="cparam-${k}" ${checked} ${dis}></td></tr>`;
         }
         const val = !unavailable ? v : "";
         const dis = unavailable ? "disabled" : "";
         return `<tr><td style="font-size:11px;padding:2px 4px">${label}</td>`
-             + `<td><input type="number" id="cparam-${k}" value="${val}"`
-             + ` style="width:70px;font-size:11px;padding:1px 3px" step="any" ${dis}></td></tr>`;
+            + `<td><input type="number" id="cparam-${k}" value="${val}"`
+            + ` style="width:70px;font-size:11px;padding:1px 3px" step="any" ${dis}></td></tr>`;
     }).join("");
     document.getElementById("cam-params").style.display = "";
 }
 
 async function applyCamParams() {
+    setStatus("", "");
     const table = document.getElementById("cam-param-table");
     const params = {};
     table.querySelectorAll("input").forEach(inp => {

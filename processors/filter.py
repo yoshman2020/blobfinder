@@ -1,6 +1,7 @@
 import cv2
 
 from .morphology import _kernel
+from .registry import register
 
 
 def ensure_gray(img):
@@ -11,12 +12,14 @@ def ensure_gray(img):
     return img
 
 
+@register("equalize")
 def histogram_equalization(img, params, **kwargs):
     img = ensure_gray(img)
 
     return cv2.equalizeHist(img)
 
 
+@register("clahe")
 def clahe(img, params, **kwargs):
     img = ensure_gray(img)
 
@@ -29,6 +32,7 @@ def clahe(img, params, **kwargs):
     return clahe_filter.apply(img)
 
 
+@register("gaussian")
 def gaussian(img, params, **kwargs):
 
     kernel = params.get("kernel", 5)
@@ -39,6 +43,7 @@ def gaussian(img, params, **kwargs):
     return cv2.GaussianBlur(img, (kernel, kernel), 0)
 
 
+@register("median")
 def median(img, params, **kwargs):
 
     kernel = params.get("kernel", 5)
@@ -49,6 +54,7 @@ def median(img, params, **kwargs):
     return cv2.medianBlur(img, kernel)
 
 
+@register("bilateral")
 def bilateral(img, params, **kwargs):
 
     kernel = params.get("kernel", 5)
@@ -59,6 +65,7 @@ def bilateral(img, params, **kwargs):
     return cv2.bilateralFilter(img, kernel, 75, 75)
 
 
+@register("threshold")
 def threshold(img, params, **kwargs):
     img = ensure_gray(img)
 
@@ -69,6 +76,7 @@ def threshold(img, params, **kwargs):
     return th
 
 
+@register("adaptive_threshold")
 def adaptive_threshold(img, params, **kwargs):
     img = ensure_gray(img)
 
@@ -88,24 +96,24 @@ def adaptive_threshold(img, params, **kwargs):
         img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block, c
     )
 
-
+@register("sobel")
 def sobel(img, params, **kwargs):
     x = int(params.get("x", True))
     y = int(params.get("y", True))
     return cv2.Sobel(img, cv2.CV_64F, x, y, _kernel(params))
 
-
+@register("laplacian")
 def laplacian(img, params, **kwargs):
     return cv2.Laplacian(img, cv2.CV_64F, _kernel(params))
 
-
+@register("scharr")
 def scharr(img, params, **kwargs):
     direction = params.get("direction", "x")
     x = 1 if direction == "x" else 0
     y = 1 if direction == "y" else 0
     return cv2.Scharr(img, cv2.CV_64F, x, y)
 
-
+@register("canny")
 def canny(img, params, **kwargs):
     low = params.get("low", 100)
     high = params.get("high", 200)

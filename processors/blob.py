@@ -1,10 +1,13 @@
 import cv2
 import numpy as np
 
+from .registry import register
 
+
+@register("blob")
 def blob_analysis(img, params, **kwargs):
     """
-    詳細ブロブ解析
+    ブロブ解析
 
     Parameters:
     img (numpy.ndarray): Input image.

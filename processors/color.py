@@ -1,29 +1,36 @@
 import cv2
 import numpy as np
 
+from .registry import register
 
+
+@register("r")
 def extract_r(img, params, **kwargs):
     out = np.zeros_like(img)
     out[:, :, 2] = img[:, :, 2]
     return out
 
 
+@register("g")
 def extract_g(img, params, **kwargs):
     out = np.zeros_like(img)
     out[:, :, 1] = img[:, :, 1]
     return out
 
 
+@register("b")
 def extract_b(img, params, **kwargs):
     out = np.zeros_like(img)
     out[:, :, 0] = img[:, :, 0]
     return out
 
 
+@register("gray")
 def gray(img, params, **kwargs):
     return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 
+@register("h")
 def h_channel(img, params, **kwargs):
 
     hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
@@ -31,6 +38,7 @@ def h_channel(img, params, **kwargs):
     return hls[:, :, 0]
 
 
+@register("l")
 def l_channel(img, params, **kwargs):
 
     hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
@@ -38,6 +46,7 @@ def l_channel(img, params, **kwargs):
     return hls[:, :, 1]
 
 
+@register("s")
 def s_channel(img, params, **kwargs):
 
     hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
@@ -45,6 +54,7 @@ def s_channel(img, params, **kwargs):
     return hls[:, :, 2]
 
 
+@register("invert")
 def invert(img, params, **kwargs):
     if len(img.shape) == 3:
         out = np.zeros_like(img)
@@ -55,6 +65,7 @@ def invert(img, params, **kwargs):
     return cv2.bitwise_not(img)
 
 
+@register("resize")
 def resize(img, params, **kwargs):
     w = int(params.get("width", 0))
     h = int(params.get("height", 0))
