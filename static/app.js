@@ -1,5 +1,7 @@
 let imageId = null;
 let originalFilename = "result";
+let folderImages = [];
+let selectedFile = null;
 let pipeline = [];
 let showingOriginal = true;
 let zoom = 1.0;
@@ -218,6 +220,76 @@ async function uploadImage(file) {
         setStatus("", "");
     } catch (e) {
         setStatus("error", "アップロードエラー: " + e.message);
+    }
+}
+
+function clearFolderSelection() {
+    document.getElementById("folder-input").value = "";
+    folderImages = [];
+    selectedFile = null;
+
+    const list = document.getElementById("image-list");
+    if (list) list.innerHTML = "";
+}
+
+function clearFileSelection() {
+    document.getElementById("file-input").value = "";
+}
+
+async function selectSingleFile(input) {
+    clearFolderSelection();
+    if (input.files.length === 0) {
+        document.getElementById("selected-file-name").textContent = "未選択";
+        return;
+    }
+    document.getElementById("selected-file-name").textContent =
+        input.files[0].name;
+    await uploadImage(input.files[0]);
+}
+
+function loadImageList(files) {
+    clearFileSelection();
+    folderImages = Array.from(files)
+        .filter(f => f.type.startsWith("image/"));
+    if (folderImages.length > 0) {
+        const folderName =
+            folderImages[0].webkitRelativePath.split("/")[0];
+        document.getElementById("selected-folder-name").textContent =
+            `${folderName} (${folderImages.length}枚)`;
+    }
+    else {
+        document.getElementById("selected-folder-name").textContent =
+            "未選択";
+    }
+    renderImageList();
+}
+
+function renderImageList() {
+    const container = document.getElementById("image-list");
+    container.innerHTML = "";
+    folderImages.forEach((file, index) => {
+        const url = URL.createObjectURL(file);
+        const div = document.createElement("div");
+        div.className = "image-item";
+        div.innerHTML = `
+            <img src="${url}" width="40">
+            <span>${file.name}</span>
+        `;
+        div.onclick = () => selectImage(index);
+        container.appendChild(div);
+    });
+}
+
+async function selectImage(index) {
+    selectedFile = folderImages[index];
+    document
+        .querySelectorAll(".image-item")
+        .forEach((e, i) =>
+            e.classList.toggle("selected", i === index)
+        );
+    await uploadImage(selectedFile);
+    if (pipeline.length > 0) {
+        await runPipeline();
     }
 }
 

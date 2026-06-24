@@ -30,7 +30,18 @@
         <div class="panel">
             <section>
                 <label><b>画像ファイル</b></label><br>
-                <input type="file" accept="image/*" onchange="uploadImage(this.files[0])">
+                <div class="file-select-row">
+                    <button onclick="document.getElementById('file-input').click()">画像選択</button>
+                    <span id="selected-file-name" class="selected-label">未選択</span>
+                    <input type="file" id="file-input" accept="image/*" onchange="selectSingleFile(this)" hidden>
+                </div>
+                <div class="file-select-row">
+                    <button onclick="document.getElementById('folder-input').click()">フォルダ選択</button>
+                    <span id="selected-folder-name" class="selected-label">未選択</span>
+                    <input type="file" id="folder-input" webkitdirectory multiple onchange="loadImageList(this.files)"
+                        hidden>
+                </div>
+                <div id="image-list" class="image-list"></div>
                 <div style="margin-top:8px">
                     <b>カメラ</b>
                     <button onclick="loadCameras()" style="margin-left:4px">一覧取得</button><br>
@@ -41,7 +52,8 @@
                         <button onclick="startStream()">ストリーム開始</button>
                         <button onclick="captureFrame()" class="success">キャプチャ</button>
                         <button onclick="stopStream()" class="btn-stop">停止</button>
-                        <span id="cam-fps" style="font-size:12px;line-height:26px;color:#16a34a;font-weight:bold"></span>
+                        <span id="cam-fps"
+                            style="font-size:12px;line-height:26px;color:#16a34a;font-weight:bold"></span>
                     </div>
                     <div id="cam-params" style="display:none;margin-top:6px">
                         <details>
