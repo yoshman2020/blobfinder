@@ -33,7 +33,11 @@ def watershed(img, params, **kwargs):
         else opening_img
     )
     distance_transform = int(params.get("distance_transform", 5))
-    dist = cv2.distanceTransform(opening_img, cv2.DIST_L2, distance_transform)
+    dist = (
+        cv2.distanceTransform(opening_img, cv2.DIST_L2, distance_transform)
+        if distance_transform >= 0
+        else opening_img
+    )
     _, sure_fg = cv2.threshold(dist, 0.5 * dist.max(), 255, 0)
     sure_fg = np.uint8(sure_fg)
     unknown = cv2.subtract(sure_bg, sure_fg)  # type: ignore

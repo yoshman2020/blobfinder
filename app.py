@@ -142,37 +142,66 @@ async def get_result(image_id: str):
     return FileResponse(path)
 
 
+@app.get("/result_step/{image_id}/{step}")
+async def get_intermediate(image_id: str, step: int):
+    path = OUTPUT_DIR / f"{image_id}_step_{step}.png"
+    if not path.exists():
+        raise HTTPException(status_code=404)
+    return FileResponse(path)
+
+
+def save_any_image_as_png_by_id(
+    image, image_id: str, i: int | None, out_dir: Path
+):
+    path = (
+        out_dir / f"{image_id}.png"
+        if i is None
+        else out_dir / f"{image_id}_step_{i}.png"
+    )
+    tmp = image
+    if tmp.dtype != np.uint8:
+        tmp = np.nan_to_num(tmp, nan=0.0, posinf=255.0, neginf=0.0)
+        tmp = np.clip(tmp, 0, 255).astype(np.uint8)
+    if len(tmp.shape) == 2:
+        tmp = cv2.cvtColor(tmp, cv2.COLOR_GRAY2BGR)
+    cv2.imwrite(str(path), tmp)
+
+
 @app.post("/process/{image_id}")
 async def process_image(image_id: str, request: ProcessRequest):
     try:
+        # 古い画像を削除
+        for f in OUTPUT_DIR.glob(f"{image_id}_step_*.png"):
+            f.unlink(missing_ok=True)
+        result_path = OUTPUT_DIR / f"{image_id}.png"
+        result_path.unlink(missing_ok=True)
+
         src = UPLOAD_DIR / f"{image_id}.png"
         if not src.exists():
             raise HTTPException(status_code=404, detail="image not found")
         img = imread_safe(str(src))
         if img is None:
             raise HTTPException(status_code=500, detail="failed to read image")
-        result, blobs = apply_pipeline(img, request.pipeline)
+        result, blobs, intermediates = apply_pipeline(img, request.pipeline)
         if result is None:
             logger.warning("process failed image_id=%s", image_id)
             raise HTTPException(
                 status_code=400, detail="invalid processing parameters"
             )
-        if result.dtype == np.float64:
-            result = cv2.normalize(
-                result, None, 0, 255, cv2.NORM_MINMAX  # type: ignore
-            ).astype(
-                np.uint8
-            )  # type: ignore
-        if len(result.shape) == 2:
-            result = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
-        output = OUTPUT_DIR / f"{image_id}.png"
-        cv2.imwrite(str(output), result)
+        save_any_image_as_png_by_id(result, image_id, None, OUTPUT_DIR)
+
+        intermediate_urls = []
+        for i, im in enumerate(intermediates):
+            save_any_image_as_png_by_id(im, image_id, i, OUTPUT_DIR)
+            intermediate_urls.append(f"/result_step/{image_id}/{i}")
+
         logger.info(
             "process done image_id=%s blobs=%d", image_id, len(blobs or [])
         )
         return {
             "success": True,
             "result_url": f"/result/{image_id}",
+            "intermediate_urls": intermediate_urls,
             "blobs": blobs or [],
         }
     except HTTPException:

@@ -6,6 +6,8 @@ except ImportError:
     system = None
 except Exception:
     system = None
+except BaseException:
+    system = None
 
 from .base import CameraBase
 
@@ -39,6 +41,8 @@ class LucidCamera(CameraBase):
         self.device = None
 
     def open(self, serial: str) -> bool:
+        if system is None:
+            return False
         infos = system.device_infos
         for info in infos:
             if info["serial"] == serial:
@@ -53,6 +57,8 @@ class LucidCamera(CameraBase):
             self.device.stop_stream()
 
     def read(self):
+        if not self.device:
+            return False, None
         buffer = self.device.get_buffer()
         frame = np.ctypeslib.as_array(
             buffer.pdata, shape=(buffer.height, buffer.width)
@@ -61,7 +67,12 @@ class LucidCamera(CameraBase):
         return True, frame
 
     def get_param(self, name):
+        if not self.device:
+            return None
         return self.device.nodemap[name].value
 
     def set_param(self, name, value):
+        if not self.device:
+            return False
         self.device.nodemap[name].value = value
+        return True

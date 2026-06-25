@@ -3,12 +3,15 @@ let originalFilename = "result";
 let folderImages = [];
 let selectedFile = null;
 let pipeline = [];
+let intermediateImages = [];
+let selectedStep = null;
 let showingOriginal = true;
 let zoom = 1.0;
 let offsetX = 0, offsetY = 0;
 let dragging = false, lastX = 0, lastY = 0;
 let canvas, ctx;
 let originalImage = null, processedImage = null;
+let viewMode = "result";
 let blobData = [];
 let selectedBlobId = null;
 let regionSelect = null;   // {stepIndex, startX, startY, endX, endY} | null
@@ -22,6 +25,7 @@ const PROC_LABELS = {
     equalize: "ヒストグラム平滑化", clahe: "適応ヒストグラム平滑化",
     gaussian: "平滑化", median: "メディアン", bilateral: "バイラテラル",
     threshold: "二値化", adaptive_threshold: "適応二値化",
+    distance_transform: "距離変換",
     opening: "オープニング", closing: "クロージング",
     dilate: "膨張", erode: "縮小", morphology: "モルフォロジー勾配",
     top_hat: "トップハット", black_hat: "ブラックハット",
@@ -44,6 +48,26 @@ const PARAM_DEFS = {
         { key: "block", label: "Block", type: "number", step: 2, min: 3 },
         { key: "c", label: "C", type: "number", step: 1 },
         { key: "otsu", label: "大津の二値化", type: "checkbox" }
+    ],
+    distance_transform: [
+        {
+            key: "dist_type", label: "距離種類", type: "select", options: [
+                { value: 1, label: "L1" },
+                { value: 2, label: "L2" },
+                { value: 3, label: "C" },
+                { value: 4, label: "L1+L2" },
+                { value: 5, label: "Fair" },
+                { value: 6, label: "Welsch" },
+                { value: 7, label: "Huber" },
+            ]
+        },
+        {
+            key: "mask_size", label: "マスクサイズ", type: "select", options: [
+                { value: 3, label: "3" },
+                { value: 5, label: "5" },
+                { value: 0, label: "0" },
+            ]
+        }
     ],
     opening: [{ key: "kernel", label: "Kernel", type: "number", step: 1, min: 1 }],
     closing: [{ key: "kernel", label: "Kernel", type: "number", step: 1, min: 1 }],
@@ -84,7 +108,8 @@ const PARAM_DEFS = {
             key: "distance_transform", label: "変換距離", type: "select", options: [
                 { value: 3, label: "3" },
                 { value: 5, label: "5" },
-                { value: 0, label: "0" }
+                { value: 0, label: "0" },
+                { value: -1, label: "なし" }
             ]
         }
     ],
@@ -121,7 +146,23 @@ const PARAM_DEFS = {
 };
 
 function draw() {
-    const img = streamImage || (showingOriginal ? originalImage : (processedImage || originalImage));
+    let img;
+    if (streamImage) {
+        img = streamImage;
+    }
+    else {
+        switch (viewMode) {
+            case "original":
+                img = originalImage;
+                break;
+            case "step":
+                img = intermediateImages[selectedStep];
+                break;
+            default:
+                img = processedImage || originalImage;
+                break;
+        }
+    }
     if (!img || !img.complete) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -187,6 +228,14 @@ function zoomOut() { zoom /= 1.2; draw(); }
 function toggleImage() {
     if (!processedImage) return;
     showingOriginal = !showingOriginal;
+    if (viewMode === "original") {
+        if (selectedStep !== null)
+            viewMode = "step";
+        else
+            viewMode = "result";
+    } else {
+        viewMode = "original";
+    }
     draw();
 }
 
@@ -301,6 +350,9 @@ function setStatus(type, msg) {
 }
 
 async function runPipeline() {
+    selectedStep = null;
+    viewMode = "result";
+    intermediateImages = [];
     if (!imageId || pipeline.length === 0) return;
     setStatus("processing", "処理中...");
     try {
@@ -325,9 +377,17 @@ async function runPipeline() {
         else {
             setStatus("error", "処理に失敗しました");
         }
+        if (data.intermediate_urls) {
+            intermediateImages = await Promise.all(
+                data.intermediate_urls.map(url => loadImage(url))
+            );
+        }
     } catch (e) {
         setStatus("error", "エラー: " + e.message);
     }
+    console.log("pipeline", pipeline.length);
+    console.log("intermediateImages", intermediateImages?.length);
+    console.log("last index", pipeline.length - 1);
 }
 
 function saveResult() {
@@ -356,11 +416,15 @@ function saveBlobCsv() {
 
 function addProc(type, params = {}) {
     pipeline.push({ type, params: { ...params } });
+    selectedStep = null;
+    intermediateImages = [];
     renderPipeline();
 }
 
 function removeStep(index) {
     pipeline.splice(index, 1);
+    selectedStep = null;
+    intermediateImages = [];
     renderPipeline();
 }
 
@@ -408,8 +472,26 @@ function renderPipeline() {
             <b>${PROC_LABELS[step.type] || step.type}</b>
             <button class="btn-remove" onclick="removeStep(${i})">✕</button>
             <div class="params">${paramsHtml}</div>`;
+
+        div.onclick = () => previewStep(i);
         container.appendChild(div);
     });
+}
+
+function previewStep(index) {
+    if (!intermediateImages[index])
+        return;
+    selectedStep = index;
+    viewMode = "step";
+    draw();
+    document
+        .querySelectorAll(".pipeline-item")
+        .forEach((e, idx) =>
+            e.classList.toggle(
+                "selected",
+                idx === index
+            )
+        );
 }
 
 let blobSortCol = null;
@@ -719,6 +801,8 @@ window.addEventListener("DOMContentLoaded", () => {
         onEnd: evt => {
             const item = pipeline.splice(evt.oldIndex, 1)[0];
             pipeline.splice(evt.newIndex, 0, item);
+            selectedStep = null;
+            intermediateImages = [];
             renderPipeline();
         }
     });

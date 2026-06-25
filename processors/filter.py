@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 
 from .morphology import _kernel
 from .registry import register
@@ -96,15 +97,54 @@ def adaptive_threshold(img, params, **kwargs):
         img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block, c
     )
 
+
+@register("distance_transform")
+def distance_transform(img, params, **kwargs):
+    img = img.copy()
+    if len(img.shape) == 3:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if img.dtype != np.uint8:
+        img = np.clip(img, 0, 255).astype(np.uint8)
+    unique = np.unique(img)
+    if len(unique) <= 2:
+        binary = img.copy()
+    else:
+        _, binary = cv2.threshold(
+            img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
+    distanceType = params.get("distanceType", cv2.DIST_L2)
+    distanceType = (
+        distanceType
+        if distanceType
+        in {
+            cv2.DIST_L1,
+            cv2.DIST_L2,
+            cv2.DIST_C,
+            cv2.DIST_L12,
+            cv2.DIST_FAIR,
+            cv2.DIST_WELSCH,
+            cv2.DIST_HUBER,
+        }
+        else cv2.DIST_L2
+    )
+    maskSize = params.get("maskSize", 3)
+    if distanceType in (cv2.DIST_L1, cv2.DIST_C) or maskSize not in (0, 3, 5):
+        maskSize = 3
+    binary = np.ascontiguousarray(binary)
+    return cv2.distanceTransform(binary, distanceType, maskSize)
+
+
 @register("sobel")
 def sobel(img, params, **kwargs):
     x = int(params.get("x", True))
     y = int(params.get("y", True))
     return cv2.Sobel(img, cv2.CV_64F, x, y, _kernel(params))
 
+
 @register("laplacian")
 def laplacian(img, params, **kwargs):
     return cv2.Laplacian(img, cv2.CV_64F, _kernel(params))
+
 
 @register("scharr")
 def scharr(img, params, **kwargs):
@@ -112,6 +152,7 @@ def scharr(img, params, **kwargs):
     x = 1 if direction == "x" else 0
     y = 1 if direction == "y" else 0
     return cv2.Scharr(img, cv2.CV_64F, x, y)
+
 
 @register("canny")
 def canny(img, params, **kwargs):

@@ -235,6 +235,11 @@ button.btn-remove:hover {
     font-size: 12px;
 }
 
+.pipeline-item.selected {
+    background: #dbeafe;
+    border-color: #2563eb;
+}
+
 .drag-handle {
     cursor: grab;
     margin-right: 6px;
