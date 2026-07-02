@@ -117,6 +117,13 @@ BlobFinder は、画像処理およびブロブ解析をブラウザ上で実行
 
 ---
 
+# 起動方法
+
+python3 -m uvicorn app:app --host 0.0.0.0 --port 8000
+
+ブラウザで
+http://localhost:8000
+
 # 操作手順
 
 1. 画像ファイルを読み込む

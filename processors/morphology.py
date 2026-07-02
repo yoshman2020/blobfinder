@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from scipy import ndimage
 
 from .registry import register
 
@@ -54,10 +53,27 @@ def black_hat(img, params, **kwargs):
     return cv2.morphologyEx(img, cv2.MORPH_BLACKHAT, _kernel(params))
 
 
+def binary_fill_holes(binary):
+    # binary: 0/255 の2値画像
+    flood = binary.copy()
+
+    h, w = binary.shape[:2]
+    mask = np.zeros((h + 2, w + 2), np.uint8)
+
+    # 背景を塗りつぶす
+    cv2.floodFill(flood, mask, (0, 0), 255)  # type: ignore
+
+    # 背景を反転
+    flood_inv = cv2.bitwise_not(flood)
+
+    # 元画像と合成すると穴が埋まる
+    return cv2.bitwise_or(binary, flood_inv)
+
+
 @register("fill_holes")
 def fill_holes(img, params, **kwargs):
     b = ensure_binary(img)
-    filled = ndimage.binary_fill_holes(b // 255).astype(np.uint8) * 255  # type: ignore
+    filled = binary_fill_holes(b)
     return filled
 
 
