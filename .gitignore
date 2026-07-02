@@ -12,7 +12,9 @@ wheels/
 node_modules/
 outputs/
 lib/
+offline_packages/
 uploads/
 static/lib/
 *.log
 persist.json
+requirements.*
