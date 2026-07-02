@@ -51,6 +51,26 @@ canvas:active {
     cursor: grabbing;
 }
 
+.context-menu {
+    display: none;
+    position: fixed;
+    background: white;
+    border: 1px solid #aaa;
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, .3);
+    min-width: 160px;
+    z-index: 10000;
+}
+
+.menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.menu-item:hover {
+    background: #e6f2ff;
+}
+
 button.btn-stop {
     background: #6b7280;
 }

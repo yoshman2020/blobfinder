@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import logging.handlers
 import os
@@ -8,7 +9,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile, WebSocket
 from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -306,6 +307,8 @@ async def close_camera():
 def _gen_frames():
     global _fps_stat
     _fps_stat = {"fps": 0.0, "count": 0, "t": time.time()}
+    frame_skip = 0
+
     while True:
         with _cam_lock:
             if camera_manager.camera is None:
@@ -313,17 +316,19 @@ def _gen_frames():
             ok, frame = camera_manager.read()
         if not ok or frame is None:
             break
+
+        # Skip every Nth frame if needed
+        frame_skip += 1
+        if frame_skip % 2 == 0:  # Encode every 2nd frame
+            continue
+
         if len(frame.shape) == 2:
             frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-        # FPS計測
-        _fps_stat["count"] += 1
-        now = time.time()
-        elapsed = now - _fps_stat["t"]
-        if elapsed >= 1.0:
-            _fps_stat["fps"] = round(_fps_stat["count"] / elapsed, 1)
-            _fps_stat["count"] = 0
-            _fps_stat["t"] = now
-        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+
+        update_fps()
+
+        # Consider reducing quality further or using H.264 encoding
+        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
         yield (
             b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
             + buf.tobytes()
@@ -384,6 +389,49 @@ async def camera_stream():
     return StreamingResponse(
         _gen_frames(), media_type="multipart/x-mixed-replace; boundary=frame"
     )
+
+
+def update_fps():
+    global _fps_stat
+
+    _fps_stat["count"] += 1
+    now = time.time()
+    elapsed = now - _fps_stat["t"]
+
+    if elapsed >= 1.0:
+        _fps_stat["fps"] = round(_fps_stat["count"] / elapsed, 1)
+        _fps_stat["count"] = 0
+        _fps_stat["t"] = now
+
+
+@app.websocket("/camera/stream/ws")
+async def websocket_stream(websocket: WebSocket):
+    await websocket.accept()
+    print("WebSocket connected")
+
+    try:
+        while True:
+            with _cam_lock:
+                if camera_manager.camera is None:
+                    break
+                ok, frame = camera_manager.read()
+
+            if not ok or frame is None:
+                break
+
+            if len(frame.shape) == 2:
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+
+            # FPS計測
+            update_fps()
+
+            _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            await websocket.send_bytes(buf.tobytes())
+            await asyncio.sleep(0.001)  # Small delay to prevent CPU spinning
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+    finally:
+        await websocket.close()
 
 
 @app.post("/camera/capture")

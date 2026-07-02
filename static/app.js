@@ -9,13 +9,14 @@ let showingOriginal = true;
 let zoom = 1.0;
 let offsetX = 0, offsetY = 0;
 let dragging = false, lastX = 0, lastY = 0;
-let canvas, ctx;
+let canvas, ctx, menu;
 let originalImage = null, processedImage = null;
 let viewMode = "result";
 let blobData = [];
 let selectedBlobId = null;
 let regionSelect = null;   // {stepIndex, startX, startY, endX, endY} | null
 let regionDragging = false;
+let ws = null;
 let streamImage = null;    // ストリーミング中の現在フレーム
 let _streamTimer = null;
 
@@ -590,39 +591,105 @@ async function startStream() {
     setStatus("", "");
     const uid = document.getElementById("cam-select").value;
     if (uid === "") return;
+
+    // Open camera first
     const res = await fetch(`/camera/open/${uid}`, { method: "POST" });
-    if (!res.ok) { setStatus("error", "カメラを開けませんでした"); return; }
-    // 隠しimgでMJPEGを受け取りcanvasに描画
-    const hidden = new Image();
-    hidden.src = "/camera/stream?t=" + Date.now();
-    let _streamFitted = false;
-    _streamTimer = setInterval(() => {
-        if (hidden.complete && hidden.naturalWidth > 0) {
-            streamImage = hidden;
-            if (!_streamFitted) { _streamFitted = true; fitToWindow(); }
-            else draw();
-        }
-    }, 50);
-    document.getElementById("img-info").textContent = "streaming...";
-    await loadCamParamTable();
-    _fpsTimer = setInterval(async () => {
-        const r = await fetch("/camera/fps");
-        const d = await r.json();
-        document.getElementById("cam-fps").textContent = d.fps + " fps";
-    }, 1000);
+    if (!res.ok) {
+        setStatus("error", "カメラを開けませんでした");
+        return;
+    }
+
+    // Now connect WebSocket
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    let firstFrame = true;
+
+    ws = new WebSocket(
+        `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/camera/stream/ws`
+    );
+    ws.binaryType = "arraybuffer";
+
+    ws.onopen = async () => {
+        console.log("WebSocket connected");
+        document.getElementById("img-info").textContent = "streaming...";
+
+        // カメラプロパティテーブルを読み込む
+        await loadCamParamTable();
+
+        // FPS表示タイマーを開始
+        _fpsTimer = setInterval(async () => {
+            const r = await fetch("/camera/fps");
+            const d = await r.json();
+            document.getElementById("cam-fps").textContent = d.fps + " fps";
+        }, 1000);
+    };
+
+    ws.onerror = (e) => {
+        console.error("WebSocket error:", e);
+        setStatus("error", "ストリーミング接続エラー");
+    };
+
+    ws.onclose = () => {
+        console.log("WebSocket disconnected");
+        clearInterval(_fpsTimer);
+        document.getElementById("img-info").textContent = "";
+        document.getElementById("cam-fps").textContent = "";
+        document.getElementById("cam-params").style.display = "none";
+    };
+
+    ws.onmessage = (event) => {
+        const blob = new Blob([event.data], { type: "image/jpeg" });
+        const url = URL.createObjectURL(blob);
+        img.onload = () => {
+            streamImage = img;
+
+            // 初回フレームのみfitToWindow()を呼ぶ
+            if (firstFrame) {
+                firstFrame = false;
+                fitToWindow();
+            } else {
+                draw();  // 毎フレーム描画
+            }
+            URL.revokeObjectURL(url);
+        };
+        img.src = url;
+    };
 }
 
 async function stopStream() {
-    clearInterval(_fpsTimer);
-    clearInterval(_streamTimer);
-    _fpsTimer = null;
-    _streamTimer = null;
-    streamImage = null;
+    // FPSタイマーを停止
+    if (_fpsTimer) {
+        clearInterval(_fpsTimer);
+        _fpsTimer = null;
+    }
+
+    // WebSocketを閉じる
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+    }
+    ws = null;
+
+    // サーバー側でカメラを閉じる
+    const res = await fetch("/camera/close", { method: "POST" });
+    if (!res.ok) {
+        setStatus("error", "カメラを閉じられませんでした");
+        return;
+    }
+    // UI要素をクリア
+    document.getElementById("img-info").textContent = "";
     document.getElementById("cam-fps").textContent = "";
     document.getElementById("cam-params").style.display = "none";
-    await fetch("/camera/close", { method: "POST" });
-    document.getElementById("img-info").textContent = "";
-    draw();
+
+    // ストリーミング画像と元画像をリセット
+    streamImage = null;
+    originalImage = null;
+    processedImage = null;
+
+    // キャンバスをクリア
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
 async function captureFrame() {
@@ -685,6 +752,9 @@ async function applyCamParams() {
     });
     if (!res.ok) { setStatus("error", "パラメータ適用失敗"); return; }
     await loadCamParamTable();
+
+    // パラメータ変更後に画面に反映させる
+    fitToWindow();
 }
 
 function startRegionSelect(stepIndex) {
@@ -730,6 +800,13 @@ function updateParam(index, key, value) {
 window.addEventListener("DOMContentLoaded", () => {
     canvas = document.getElementById("canvas");
     ctx = canvas.getContext("2d");
+
+    menu = document.getElementById("contextMenu");
+    // 右クリックで画像保存
+    canvas.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        showMyMenu(e.clientX, e.clientY);
+    });
 
     const resizeCanvas = () => {
         const area = canvas.parentElement;
@@ -833,3 +910,64 @@ window.addEventListener("DOMContentLoaded", () => {
         handle.classList.remove("dragging");
     });
 });
+
+function showMyMenu(x, y) {
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.style.display = "block";
+}
+
+function hideMyMenu() {
+    menu.style.display = "none";
+}
+
+// 「画像を保存」
+document.getElementById("menuSave").addEventListener("click", () => {
+    hideMyMenu();
+    downloadImage();
+});
+
+// メニュー外をクリックしたら閉じる
+document.addEventListener("click", () => {
+    hideMyMenu();
+});
+
+// ESCでも閉じる
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        hideMyMenu();
+    }
+});
+
+// 実装済み画像を正しいサイズで保存
+async function downloadImage() {
+    let img = streamImage || (showingOriginal ? originalImage : (processedImage || originalImage));
+
+    if (!img || !img.complete) {
+        return;
+    }
+
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+
+    // 実際の画像解像度でオフスクリーンキャンバスを作成
+    const offscreenCanvas = document.createElement("canvas");
+    offscreenCanvas.width = w;
+    offscreenCanvas.height = h;
+    const offCtx = offscreenCanvas.getContext("2d");
+
+    // ズームやオフセットなしで元の解像度で描画
+    offCtx.drawImage(img, 0, 0, w, h);
+
+    // キャンバスをPNGで保存
+    offscreenCanvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${originalFilename || "image"}_${w}x${h}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, "image/png");
+}
