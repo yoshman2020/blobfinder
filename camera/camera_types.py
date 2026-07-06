@@ -1,5 +1,6 @@
 from .base import CameraBase
 from .basler_camera import BaslerCamera
+from .gige_camera import GigEVisionCamera
 from .ids_camera import IDSCamera
 from .ids_ueye_camera import UeyeCamera
 from .jai_camera import JAICamera
@@ -17,4 +18,5 @@ CAMERA_TYPES: dict[str, type[CameraBase]] = {
     "ueye": UeyeCamera,
     "ids": IDSCamera,
     "basler": BaslerCamera,
+    "gige": GigEVisionCamera,
 }
