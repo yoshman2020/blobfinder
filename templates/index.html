@@ -1,127 +1,269 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
-
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Image Processing App</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/static/style.css" />
     <script src="/static/lib/Sortable.min.js"></script>
-</head>
+  </head>
 
-<body>
+  <body>
     <h1>Image Processing App</h1>
     <div class="main">
-        <div class="canvas-area">
-            <div class="canvas-toolbar">
-                <button onclick="fitToWindow()">Fit</button>
-                <button onclick="originalSize()">等倍</button>
-                <button onclick="zoomIn()">拡大</button>
-                <button onclick="zoomOut()">縮小</button>
-                <button onclick="toggleImage()">元画像 / 処理後</button>
-                <button onclick="saveResult()" class="success">保存</button>
-            </div>
-            <canvas id="canvas"></canvas>
-            <div id="contextMenu" class="context-menu">
-                <div class="menu-item" id="menuSave">画像を保存</div>
-            </div>
-            <div id="img-info" class="img-info"></div>
-            <div id="status" class="status" style="display:none"></div>
+      <div class="canvas-area">
+        <div class="canvas-toolbar">
+          <button onclick="fitToWindow()">Fit</button>
+          <button onclick="originalSize()">等倍</button>
+          <button onclick="zoomIn()">拡大</button>
+          <button onclick="zoomOut()">縮小</button>
+          <button onclick="toggleImage()">元画像 / 処理後</button>
+          <button onclick="saveResult()" class="success">保存</button>
         </div>
-
-        <div id="resize-handle"></div>
-        <div class="panel">
-            <section>
-                <label><b>画像ファイル</b></label><br>
-                <div class="file-select-row">
-                    <button onclick="document.getElementById('file-input').click()">画像選択</button>
-                    <span id="selected-file-name" class="selected-label">未選択</span>
-                    <input type="file" id="file-input" accept="image/*" onchange="selectSingleFile(this)" hidden>
-                </div>
-                <div class="file-select-row">
-                    <button onclick="document.getElementById('folder-input').click()">フォルダ選択</button>
-                    <span id="selected-folder-name" class="selected-label">未選択</span>
-                    <input type="file" id="folder-input" webkitdirectory multiple onchange="loadImageList(this.files)"
-                        hidden>
-                </div>
-                <div id="image-list" class="image-list"></div>
-                <div style="margin-top:8px">
-                    <b>カメラ</b>
-                    <button onclick="loadCameras()" style="margin-left:4px">一覧取得</button><br>
-                    <select id="cam-select" style="margin-top:4px;font-size:12px;width:100%">
-                        <option value="">― カメラを選択 ―</option>
-                    </select><br>
-                    <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">
-                        <button onclick="startStream()">ストリーム開始</button>
-                        <button onclick="captureFrame()" class="success">キャプチャ</button>
-                        <button onclick="stopStream()" class="btn-stop">停止</button>
-                        <span id="cam-fps"
-                            style="font-size:12px;line-height:26px;color:#16a34a;font-weight:bold"></span>
-                    </div>
-                    <div id="cam-params" style="display:none;margin-top:6px">
-                        <details>
-                            <summary style="cursor:pointer;font-size:12px;font-weight:bold">カメラパラメータ</summary>
-                            <table class="cam-param-table" id="cam-param-table"></table>
-                            <button onclick="applyCamParams()" class="success" style="margin-top:4px">適用</button>
-                        </details>
-                    </div>
-                </div>
-            </section>
-
-            <section>
-                <b>処理を追加</b>
-                <div class="proc-grid">
-                    <button onclick="addProc('r')">R抽出</button>
-                    <button onclick="addProc('g')">G抽出</button>
-                    <button onclick="addProc('b')">B抽出</button>
-                    <button onclick="addProc('gray')">Gray変換</button>
-                    <button onclick="addProc('h')">H抽出</button>
-                    <button onclick="addProc('l')">L抽出</button>
-                    <button onclick="addProc('s')">S抽出</button>
-                    <button onclick="addProc('invert')">反転</button>
-                    <button onclick="addProc('resize',{width:0,height:0,scale:1.0})">リサイズ</button>
-                    <button onclick="addProc('equalize')">ヒストグラム平滑化</button>
-                    <button onclick="addProc('clahe',{clip_limit:2.0,tile:8})">適応ヒストグラム平滑化</button>
-                    <button onclick="addProc('gaussian',{kernel:5})">平滑化</button>
-                    <button onclick="addProc('median',{kernel:5})">メディアン</button>
-                    <button onclick="addProc('bilateral',{kernel:5})">バイラテラル</button>
-                    <button onclick="addProc('threshold',{value:127})">二値化</button>
-                    <button onclick="addProc('adaptive_threshold',{block:11,c:2,otsu:false})">適応二値化</button>
-                    <button onclick="addProc('distance_transform',{dist_type:2,mask_size:3})">距離変換</button>
-                    <button onclick="addProc('opening',{kernel:3})">オープニング</button>
-                    <button onclick="addProc('closing',{kernel:3})">クロージング</button>
-                    <button onclick="addProc('dilate',{kernel:3,iterations:1})">膨張</button>
-                    <button onclick="addProc('erode',{kernel:3,iterations:1})">縮小</button>
-                    <button onclick="addProc('morphology',{kernel:3})">モルフォロジー勾配</button>
-                    <button onclick="addProc('top_hat',{kernel:3})">トップハット</button>
-                    <button onclick="addProc('black_hat',{kernel:3})">ブラックハット</button>
-                    <button onclick="addProc('sobel',{kernel:3,x:true,y:true})">Sobel</button>
-                    <button onclick="addProc('laplacian',{kernel:3})">Laplacian</button>
-                    <button onclick="addProc('scharr',{direction:'x'})">Scharr</button>
-                    <button onclick="addProc('canny',{low:100,high:200})">Canny</button>
-                    <button onclick="addProc('fill_holes')">穴埋め</button>
-                    <button onclick="addProc('remove_border')">境界ブロブ除去</button>
-                    <button
-                        onclick="addProc('watershed',{kernel:3,opening_iterations:2,dilation_iterations:3,distance_transform:5})">ウォーターシェッド</button>
-                    <button
-                        onclick="addProc('blob',{filter_area:true,min_area:100,max_area:1000000,filter_circularity:false,min_circularity:0.5,filter_convexity:false,min_convexity:0.8,filter_inertia:false,min_inertia:0.1,filter_color:false,blob_color:0,filter_side:false,min_long_side:1,max_short_side:1000000,filter_angle:false,min_angle:-180,max_angle:180,filter_centroid:false,min_cx:0,max_cx:99999,min_cy:0,max_cy:99999})">ブロブ解析</button>
-                </div>
-            </section>
-
-            <section>
-                <b>パイプライン</b>
-                <div id="pipeline"></div>
-                <button onclick="runPipeline()" class="success">実行</button>
-            </section>
-
-            <section id="blob-section" style="display:none">
-                <b>ブロブ一覧</b>
-                <button onclick="saveBlobCsv()" class="success">CSV保存</button>
-                <div id="blob-list"></div>
-            </section>
+        <canvas id="canvas"></canvas>
+        <div id="contextMenu" class="context-menu">
+          <div class="menu-item" id="menuSave">画像を保存</div>
         </div>
+        <div id="img-info" class="img-info"></div>
+        <div id="status" class="status" style="display: none"></div>
+      </div>
+
+      <div id="resize-handle"></div>
+      <div class="panel">
+        <section>
+          <label><b>画像ファイル</b></label
+          ><br />
+          <div class="file-select-row">
+            <button onclick="document.getElementById('file-input').click()">
+              画像選択
+            </button>
+            <span id="selected-file-name" class="selected-label">未選択</span>
+            <input
+              type="file"
+              id="file-input"
+              accept="image/*"
+              onchange="selectSingleFile(this)"
+              hidden
+            />
+          </div>
+          <div class="file-select-row">
+            <button onclick="document.getElementById('folder-input').click()">
+              フォルダ選択
+            </button>
+            <span id="selected-folder-name" class="selected-label">未選択</span>
+            <input
+              type="file"
+              id="folder-input"
+              webkitdirectory
+              multiple
+              onchange="loadImageList(this.files)"
+              hidden
+            />
+          </div>
+          <div id="image-list" class="image-list"></div>
+          <div style="margin-top: 8px">
+            <b>カメラ</b>
+            <button onclick="loadCameras()" style="margin-left: 4px">
+              一覧取得</button
+            ><br />
+            <select
+              id="cam-select"
+              style="margin-top: 4px; font-size: 12px; width: 100%"
+            >
+              <option value="">― カメラを選択 ―</option></select
+            ><br />
+            <div
+              style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px"
+            >
+              <button onclick="startStream()">ストリーム開始</button>
+              <button onclick="captureFrame()" class="success">
+                キャプチャ
+              </button>
+              <button onclick="stopStream()" class="btn-stop">停止</button>
+              <span
+                id="cam-fps"
+                style="
+                  font-size: 12px;
+                  line-height: 26px;
+                  color: #16a34a;
+                  font-weight: bold;
+                "
+              ></span>
+            </div>
+            <div id="cam-params" style="display: none; margin-top: 6px">
+              <details>
+                <summary
+                  style="cursor: pointer; font-size: 12px; font-weight: bold"
+                >
+                  カメラパラメータ
+                </summary>
+                <table class="cam-param-table" id="cam-param-table"></table>
+                <button
+                  onclick="applyCamParams()"
+                  class="success"
+                  style="margin-top: 4px"
+                >
+                  適用
+                </button>
+              </details>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <b>処理を追加</b>
+          <div class="proc-grid">
+            <button onclick="addProc('r')">R抽出</button>
+            <button onclick="addProc('g')">G抽出</button>
+            <button onclick="addProc('b')">B抽出</button>
+            <button onclick="addProc('gray')">Gray変換</button>
+            <button onclick="addProc('h')">H抽出</button>
+            <button onclick="addProc('l')">L抽出</button>
+            <button onclick="addProc('s')">S抽出</button>
+            <button onclick="addProc('invert')">反転</button>
+            <button
+              onclick="addProc('resize', { width: 0, height: 0, scale: 1.0 })"
+            >
+              リサイズ
+            </button>
+            <button onclick="addProc('equalize')">ヒストグラム平滑化</button>
+            <button onclick="addProc('clahe', { clip_limit: 2.0, tile: 8 })">
+              適応ヒストグラム平滑化
+            </button>
+            <button onclick="addProc('gaussian', { kernel: 5 })">平滑化</button>
+            <button onclick="addProc('median', { kernel: 5 })">
+              メディアン
+            </button>
+            <button onclick="addProc('bilateral', { kernel: 5 })">
+              バイラテラル
+            </button>
+            <button onclick="addProc('threshold', { value: 127 })">
+              二値化
+            </button>
+            <button
+              onclick="
+                addProc('adaptive_threshold', { block: 11, c: 2, otsu: false })
+              "
+            >
+              適応二値化
+            </button>
+            <button
+              onclick="
+                addProc('distance_transform', { dist_type: 2, mask_size: 3 })
+              "
+            >
+              距離変換
+            </button>
+            <button onclick="addProc('opening', { kernel: 3 })">
+              オープニング
+            </button>
+            <button onclick="addProc('closing', { kernel: 3 })">
+              クロージング
+            </button>
+            <button onclick="addProc('dilate', { kernel: 3, iterations: 1 })">
+              膨張
+            </button>
+            <button onclick="addProc('erode', { kernel: 3, iterations: 1 })">
+              縮小
+            </button>
+            <button onclick="addProc('morphology', { kernel: 3 })">
+              モルフォロジー勾配
+            </button>
+            <button onclick="addProc('top_hat', { kernel: 3 })">
+              トップハット
+            </button>
+            <button onclick="addProc('black_hat', { kernel: 3 })">
+              ブラックハット
+            </button>
+            <button onclick="addProc('sobel', { kernel: 3, x: true, y: true })">
+              Sobel
+            </button>
+            <button onclick="addProc('laplacian', { kernel: 3 })">
+              Laplacian
+            </button>
+            <button onclick="addProc('scharr', { direction: 'x' })">
+              Scharr
+            </button>
+            <button onclick="addProc('canny', { low: 100, high: 200 })">
+              Canny
+            </button>
+            <button onclick="addProc('fill_holes')">穴埋め</button>
+            <button onclick="addProc('remove_border')">境界ブロブ除去</button>
+            <button
+              onclick="
+                addProc('watershed', {
+                  kernel: 3,
+                  opening_iterations: 2,
+                  dilation_iterations: 3,
+                  distance_transform: 5,
+                })
+              "
+            >
+              ウォーターシェッド
+            </button>
+            <button
+              onclick="
+                addProc('blob', {
+                  filter_area: true,
+                  min_area: 100,
+                  max_area: 1000000,
+                  filter_circularity: false,
+                  min_circularity: 0.5,
+                  filter_convexity: false,
+                  min_convexity: 0.8,
+                  filter_inertia: false,
+                  min_inertia: 0.1,
+                  filter_color: false,
+                  blob_color: 0,
+                  filter_side: false,
+                  min_long_side: 1,
+                  max_short_side: 1000000,
+                  filter_angle: false,
+                  min_angle: -180,
+                  max_angle: 180,
+                  filter_centroid: false,
+                  min_cx: 0,
+                  max_cx: 99999,
+                  min_cy: 0,
+                  max_cy: 99999,
+                })
+              "
+            >
+              ブロブ解析
+            </button>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3>⚙️ 設定管理</h3>
+          <div class="settings-buttons">
+            <button class="btn-info" onclick="saveSettings()">💾 保存</button>
+            <button class="btn-info" onclick="loadSettingsList()">
+              📂 読み込み
+            </button>
+            <button class="btn-info" onclick="exportSettings()">
+              📤 エクスポート
+            </button>
+            <button class="btn-info" onclick="importSettings()">
+              📥 インポート
+            </button>
+          </div>
+          <div id="current-settings-name" class="current-settings-name"></div>
+        </section>
+
+        <section>
+          <b>パイプライン</b>
+          <div id="pipeline"></div>
+          <button onclick="runPipeline()" class="success">実行</button>
+        </section>
+
+        <section id="blob-section" style="display: none">
+          <b>ブロブ一覧</b>
+          <button onclick="saveBlobCsv()" class="success">CSV保存</button>
+          <div id="blob-list"></div>
+        </section>
+      </div>
     </div>
     <script src="/static/app.js"></script>
-</body>
-
+  </body>
 </html>

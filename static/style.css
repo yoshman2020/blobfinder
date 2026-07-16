@@ -1,412 +1,564 @@
 * {
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #f4f6f8;
-    color: #222;
-    font-size: 13px;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  color: #222;
+  font-size: 13px;
 }
 
 h1 {
-    margin: 0;
-    padding: 10px 16px;
-    background: #1f2937;
-    color: white;
-    font-size: 16px;
+  margin: 0;
+  padding: 10px 16px;
+  background: #1f2937;
+  color: white;
+  font-size: 16px;
 }
 
 .main {
-    display: flex;
-    height: calc(100vh - 42px);
+  display: flex;
+  height: calc(100vh - 42px);
 }
 
 /* Canvas エリア */
 .canvas-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #e5e7eb;
-    overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #e5e7eb;
+  overflow: hidden;
 }
 
 .canvas-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 6px;
-    background: #d1d5db;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  background: #d1d5db;
 }
 
 canvas {
-    flex: 1;
-    display: block;
-    cursor: grab;
-    background: #fff;
+  flex: 1;
+  display: block;
+  cursor: grab;
+  background: #fff;
 }
 
 canvas:active {
-    cursor: grabbing;
+  cursor: grabbing;
 }
 
 .context-menu {
-    display: none;
-    position: fixed;
-    background: white;
-    border: 1px solid #aaa;
-    box-shadow: 2px 2px 8px rgba(0, 0, 0, .3);
-    min-width: 160px;
-    z-index: 10000;
+  display: none;
+  position: fixed;
+  background: white;
+  border: 1px solid #aaa;
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+  min-width: 160px;
+  z-index: 10000;
 }
 
 .menu-item {
-    padding: 8px 16px;
-    cursor: pointer;
-    user-select: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  user-select: none;
 }
 
 .menu-item:hover {
-    background: #e6f2ff;
+  background: #e6f2ff;
 }
 
 button.btn-stop {
-    background: #6b7280;
+  background: #6b7280;
 }
 
 button.btn-stop:hover {
-    background: #4b5563;
+  background: #4b5563;
 }
 
 /* 情報バー */
 .img-info {
-    padding: 3px 8px;
-    background: #1f2937;
-    color: #d1fae5;
-    font-size: 11px;
-    font-family: monospace;
-    white-space: nowrap;
-    min-height: 20px;
-    flex-shrink: 0;
+  padding: 3px 8px;
+  background: #1f2937;
+  color: #d1fae5;
+  font-size: 11px;
+  font-family: monospace;
+  white-space: nowrap;
+  min-height: 20px;
+  flex-shrink: 0;
 }
 
 /* リサイズハンドル */
 #resize-handle {
-    width: 5px;
-    cursor: col-resize;
-    background: #d1d5db;
-    flex-shrink: 0;
-    transition: background 0.15s;
+  width: 5px;
+  cursor: col-resize;
+  background: #d1d5db;
+  flex-shrink: 0;
+  transition: background 0.15s;
 }
 
 #resize-handle:hover,
 #resize-handle.dragging {
-    background: #2563eb;
+  background: #2563eb;
 }
 
 /* パネル */
 .panel {
-    width: 300px;
-    background: white;
-    border-left: 1px solid #ddd;
-    overflow-y: auto;
-    padding: 8px;
+  width: 300px;
+  background: white;
+  border-left: 1px solid #ddd;
+  overflow-y: auto;
+  padding: 8px;
 }
 
 section {
-    margin-bottom: 12px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
 }
 
 /* ボタン共通 */
 button {
-    padding: 4px 8px;
-    border: none;
-    border-radius: 4px;
-    background: #2563eb;
-    color: white;
-    cursor: pointer;
-    font-size: 12px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
 }
 
 button:hover {
-    background: #1d4ed8;
+  background: #1d4ed8;
 }
 
 button.success {
-    background: #16a34a;
+  background: #16a34a;
 }
 
 button.success:hover {
-    background: #15803d;
+  background: #15803d;
 }
 
 button.btn-remove {
-    background: #ef4444;
-    padding: 2px 6px;
+  background: #ef4444;
+  padding: 2px 6px;
 }
 
 button.btn-remove:hover {
-    background: #dc2626;
+  background: #dc2626;
 }
 
 /* 画像一覧 */
 .btn {
-    display: inline-block;
-    padding: 6px 12px;
-    background: #2563eb;
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-right: 4px;
+  display: inline-block;
+  padding: 6px 12px;
+  background: #2563eb;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 4px;
 }
 
 .btn:hover {
-    background: #1d4ed8;
+  background: #1d4ed8;
 }
 
 .file-select-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-    flex-wrap: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: nowrap;
 }
 
 .file-select-row button {
-    width: 110px;
-    flex-shrink: 0;
+  width: 110px;
+  flex-shrink: 0;
 }
 
 .selected-label {
-    flex: 1;
-    min-width: 0;
+  flex: 1;
+  min-width: 0;
 
-    padding: 4px 8px;
+  padding: 4px 8px;
 
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
 
-    background: #f8fafc;
-    color: #374151;
+  background: #f8fafc;
+  color: #374151;
 
-    font-size: 12px;
-    line-height: 20px;
+  font-size: 12px;
+  line-height: 20px;
 
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .image-list {
-    max-height: 250px;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    margin-top: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  margin-top: 8px;
 }
 
 .image-item {
-    padding: 4px 8px;
-    cursor: pointer;
-    border-bottom: 1px solid #eee;
-    font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  font-size: 12px;
 }
 
 .image-item:hover {
-    background: #f5f5f5;
+  background: #f5f5f5;
 }
 
 .image-item.selected {
-    background: #2563eb;
-    color: white;
+  background: #2563eb;
+  color: white;
 }
 
 /* 処理ボタングリッド */
 .proc-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
 }
 
 .proc-grid button {
-    font-size: 11px;
-    padding: 3px 6px;
+  font-size: 11px;
+  padding: 3px 6px;
 }
 
 /* パイプライン */
 #pipeline {
-    margin-top: 6px;
-    margin-bottom: 6px;
-    min-height: 20px;
+  margin-top: 6px;
+  margin-bottom: 6px;
+  min-height: 20px;
 }
 
 .pipeline-item {
-    padding: 6px 8px;
-    margin: 4px 0;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: #fafafa;
+  padding: 6px 8px;
+  margin: 4px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fafafa;
 }
 
 .pipeline-item b {
-    font-size: 12px;
+  font-size: 12px;
 }
 
 .pipeline-item.selected {
-    background: #dbeafe;
-    border-color: #2563eb;
+  background: #dbeafe;
+  border-color: #2563eb;
 }
 
 .drag-handle {
-    cursor: grab;
-    margin-right: 6px;
-    color: #aaa;
+  cursor: grab;
+  margin-right: 6px;
+  color: #aaa;
 }
 
 .params {
-    margin-top: 4px;
+  margin-top: 4px;
 }
 
 .params label {
-    font-size: 11px;
-    margin-right: 8px;
+  font-size: 11px;
+  margin-right: 8px;
+}
+
+/* ===== 設定管理 ===== */
+.settings-section {
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+
+.settings-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.settings-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.settings-buttons button {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+button.btn-info {
+  background: #2563eb;
+}
+
+button.btn-info:hover {
+  background: #1d4ed8;
+}
+
+button.btn-danger {
+  background: #ff6b6b;
+}
+
+button.btn-danger:hover {
+  background: #ff5252;
+}
+
+.current-settings-name {
+  font-size: 12px;
+  color: #666;
+  margin-top: 8px;
+}
+
+/* ===== 設定ダイアログ ===== */
+.settings-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+.settings-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  max-height: 80vh;
+  overflow-y: auto;
+  min-width: 400px;
+}
+
+.settings-dialog h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.settings-dialog-list {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 15px;
+}
+
+.settings-dialog-item {
+  padding: 10px;
+  margin: 5px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-dialog-item:hover {
+  background: #f9fafb;
+}
+
+.settings-dialog-item-info {
+  flex: 1;
+  cursor: pointer;
+}
+
+.settings-dialog-item-name {
+  font-weight: bold;
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.settings-dialog-item-meta {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.settings-dialog-item-action {
+  padding: 6px 12px;
+  margin-left: 10px;
+  flex-shrink: 0;
+}
+
+.settings-dialog-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.settings-dialog-buttons button {
+  padding: 8px 16px;
+}
+
+.settings-dialog-empty {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+}
+
+#peline-settings {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+#current-pipeline-name {
+  font-size: 12px;
+  color: #666;
 }
 
 .params input[type="number"] {
-    width: 56px;
-    padding: 2px 4px;
-    border: 1px solid #ccc;
-    border-radius: 3px;
+  width: 56px;
+  padding: 2px 4px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
 }
 
 input[type="file"] {
-    margin-top: 4px;
-    font-size: 12px;
-    width: 100%;
+  margin-top: 4px;
+  font-size: 12px;
+  width: 100%;
 }
 
 @media (max-width: 700px) {
-    .main {
-        flex-direction: column;
-    }
+  .main {
+    flex-direction: column;
+  }
 
-    .panel {
-        width: 100%;
-        height: 50vh;
-    }
+  .panel {
+    width: 100%;
+    height: 50vh;
+  }
 }
 
 /* ステータス表示 */
 .status {
-    position: absolute;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 8px 20px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: bold;
-    pointer-events: none;
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: bold;
+  pointer-events: none;
 }
 
 .status.processing {
-    background: rgba(37, 99, 235, 0.88);
-    color: #fff;
-    animation: pulse 1s ease-in-out infinite alternate;
+  background: rgba(37, 99, 235, 0.88);
+  color: #fff;
+  animation: pulse 1s ease-in-out infinite alternate;
 }
 
 .status.error {
-    background: rgba(220, 38, 38, 0.92);
-    color: #fff;
+  background: rgba(220, 38, 38, 0.92);
+  color: #fff;
 }
 
 @keyframes pulse {
-    from {
-        opacity: 1;
-    }
+  from {
+    opacity: 1;
+  }
 
-    to {
-        opacity: 0.5;
-    }
+  to {
+    opacity: 0.5;
+  }
 }
 
 .canvas-area {
-    position: relative;
+  position: relative;
 }
 
 /* ブロブ一覧 */
 .blob-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11px;
-    margin-top: 4px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-top: 4px;
 }
 
 .blob-table th {
-    background: #f0f0f0;
-    padding: 3px 4px;
-    border: 1px solid #ddd;
-    text-align: center;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    user-select: none;
+  background: #f0f0f0;
+  padding: 3px 4px;
+  border: 1px solid #ddd;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  user-select: none;
 }
 
 .blob-table th:hover {
-    background: #e0e0e0;
+  background: #e0e0e0;
 }
 
 .blob-table td {
-    padding: 2px 4px;
-    border: 1px solid #eee;
-    text-align: right;
-    white-space: nowrap;
+  padding: 2px 4px;
+  border: 1px solid #eee;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .blob-row {
-    cursor: pointer;
-    border-left: 4px solid var(--blob-color, #ccc);
+  cursor: pointer;
+  border-left: 4px solid var(--blob-color, #ccc);
 }
 
 .blob-row:hover {
-    background: #f5f5f5;
+  background: #f5f5f5;
 }
 
 .blob-row.selected {
-    background: #fef08a;
-    font-weight: bold;
+  background: #fef08a;
+  font-weight: bold;
 }
 
 /* カメラパラメータテーブル */
 .cam-param-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 4px;
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 4px;
 }
 
 .cam-param-table td {
-    padding: 2px 2px;
-    font-size: 11px;
+  padding: 2px 2px;
+  font-size: 11px;
 }
 
-.cam-param-table input[type=number] {
-    width: 70px;
-    padding: 1px 3px;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    font-size: 11px;
+.cam-param-table input[type="number"] {
+  width: 70px;
+  padding: 1px 3px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 11px;
 }
 
 /* img-info が切れないよう canvas を flex-shrink 対応に */
 .canvas-area canvas {
-    flex: 1 1 0;
-    min-height: 0;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .img-info {
-    flex-shrink: 0;
+  flex-shrink: 0;
 }

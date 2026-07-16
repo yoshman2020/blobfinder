@@ -13,6 +13,7 @@ node_modules/
 outputs/
 lib/
 offline_packages/
+pipelines/
 uploads/
 static/lib/
 *.log
