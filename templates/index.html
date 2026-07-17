@@ -196,8 +196,20 @@
         </div>
       </section>
 
+      <section>
+        <b>画像処理リスト</b>
+        <div id="pipeline"></div>
+        <button onclick="runPipeline()" class="success">実行</button>
+      </section>
+
+      <section id="blob-section" style="display: none">
+        <b>ブロブ一覧 <span id="blob-count"></span></b>
+        <button onclick="saveBlobCsv()" class="success">CSV保存</button>
+        <div id="blob-list" class="blob-list-container"></div>
+      </section>
+
       <section class="settings-section">
-        <h3>⚙️ 設定管理</h3>
+        <h3>⚙️ 画像処理リスト管理</h3>
         <div class="settings-buttons">
           <button class="btn-info" onclick="saveSettings()">💾 保存</button>
           <button class="btn-info" onclick="loadSettingsList()">
@@ -211,18 +223,6 @@
           </button>
         </div>
         <div id="current-settings-name" class="current-settings-name"></div>
-      </section>
-
-      <section>
-        <b>パイプライン</b>
-        <div id="pipeline"></div>
-        <button onclick="runPipeline()" class="success">実行</button>
-      </section>
-
-      <section id="blob-section" style="display: none">
-        <b>ブロブ一覧</b>
-        <button onclick="saveBlobCsv()" class="success">CSV保存</button>
-        <div id="blob-list"></div>
       </section>
     </div>
   </div>

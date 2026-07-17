@@ -654,11 +654,13 @@ let blobSortAsc = true;
 function renderBlobList(blobs) {
   const section = document.getElementById("blob-section");
   const container = document.getElementById("blob-list");
+  const countSpan = document.getElementById("blob-count");
   if (!blobs || blobs.length === 0) {
     section.style.display = "none";
     return;
   }
   section.style.display = "";
+  countSpan.textContent = `(${blobs.length}件)`;
   const cols = [
     "id",
     "cx",

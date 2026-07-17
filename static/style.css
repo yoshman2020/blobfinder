@@ -236,7 +236,7 @@ button.btn-remove:hover {
   padding: 3px 6px;
 }
 
-/* パイプライン */
+/* 画像処理リスト */
 #pipeline {
   margin-top: 6px;
   margin-bottom: 6px;
@@ -620,6 +620,13 @@ input[type="file"] {
 }
 
 /* ブロブ一覧 */
+.blob-list-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
 .blob-table {
   width: 100%;
   border-collapse: collapse;
