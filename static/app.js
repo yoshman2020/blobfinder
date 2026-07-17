@@ -741,31 +741,142 @@ function selectBlob(id) {
 // ===== 設定保存 =====
 
 async function saveSettings() {
-  const name = prompt("設定名を入力してください:");
-  if (!name) return;
+  const settingsName = prompt("設定名を入力してください：");
+  if (!settingsName) return;
 
+  // 存在確認
+  try {
+    const checkRes = await fetch("/api/pipelines/check-exists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: settingsName }),
+    });
+    const checkData = await checkRes.json();
+
+    if (checkData.exists) {
+      // 既存ファイルがある場合、ダイアログを表示
+      showSaveConflictDialog(settingsName);
+    } else {
+      // 存在しない場合、そのまま保存
+      performSave(settingsName, false);
+    }
+  } catch (e) {
+    setStatus("error", "エラー: " + e.message);
+  }
+}
+
+function showSaveConflictDialog(name) {
+  // 既に存在したら削除
+  const existing = document.getElementById("save-conflict-dialog");
+  if (existing) existing.remove();
+
+  // オーバーレイを作成
+  const overlay = document.createElement("div");
+  overlay.className = "save-dialog-overlay";
+  overlay.id = "save-conflict-overlay";
+
+  // ダイアログを作成
+  const dialog = document.createElement("div");
+  dialog.className = "save-dialog";
+  dialog.id = "save-conflict-dialog";
+  dialog.innerHTML = `
+    <h3>設定「${name}」は既に存在します</h3>
+    <p>どのように保存しますか？</p>
+    <div class="save-dialog-buttons">
+      <button id="overwrite-btn" class="btn-primary">上書き保存</button>
+      <button id="save-as-new-btn" class="btn-secondary">新規保存</button>
+      <button id="cancel-btn" style="background: #f0f0f0; color: #333;">キャンセル</button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(dialog);
+
+  // イベントリスナーを追加
+  document.getElementById("overwrite-btn").addEventListener("click", () => {
+    closeSaveConflictDialog();
+    performSave(name, true);
+  });
+
+  document.getElementById("save-as-new-btn").addEventListener("click", () => {
+    closeSaveConflictDialog();
+    performSave(name, false);
+  });
+
+  document.getElementById("cancel-btn").addEventListener("click", () => {
+    closeSaveConflictDialog();
+  });
+
+  // オーバーレイクリックでも閉じる
+  overlay.addEventListener("click", () => {
+    closeSaveConflictDialog();
+  });
+}
+
+function closeSaveConflictDialog() {
+  const dialog = document.getElementById("save-conflict-dialog");
+  const overlay = document.getElementById("save-conflict-overlay");
+  if (dialog) dialog.remove();
+  if (overlay) overlay.remove();
+}
+
+async function performSave(name, overwrite) {
   setStatus("processing", "設定を保存中...");
   try {
     const res = await fetch("/api/pipelines/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, pipeline }),
+      body: JSON.stringify({
+        name,
+        pipeline,
+        overwrite
+      }),
     });
-
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || "保存失敗");
     }
-
     const data = await res.json();
-    currentSettingsName = name;
+
+    // バックエンドから返された実際の名前を使用
+    currentSettingsName = data.name;
     updateCurrentSettingsDisplay();
-    setStatus("success", `保存完了: ${name}`);
+
+    setStatus("success", `保存完了: ${data.name}`);
     setTimeout(() => setStatus("", ""), 2000);
   } catch (e) {
     setStatus("error", "エラー: " + e.message);
   }
 }
+
+async function selectSettingsToLoad(filename) {
+  closeSettingsDialog();
+  setStatus("processing", "設定を読み込み中...");
+  try {
+    const res = await fetch("/api/pipelines/load", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: filename }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "読み込み失敗");
+    }
+    const data = await res.json();
+    pipeline = data.pipeline;
+    currentSettingsName = data.name;
+    intermediateImages = [];
+    selectedStep = null;
+    viewMode = "original";
+    updateCurrentSettingsDisplay();
+    renderPipeline();
+    setStatus("success", `読み込み完了: ${currentSettingsName}`);
+    setTimeout(() => setStatus("", ""), 2000);
+  } catch (e) {
+    setStatus("error", "エラー: " + e.message);
+  }
+}
+
 
 // ===== 設定読み込み =====
 
@@ -808,12 +919,11 @@ function showLoadDialog(pipelines) {
         <div class="settings-dialog">
             <h3>保存済み設定を読み込み</h3>
             <div class="settings-dialog-list">
-                ${
-                  pipelines.length === 0
-                    ? '<div class="settings-dialog-empty">保存済み設定はありません</div>'
-                    : pipelines
-                        .map(
-                          (p) => `
+                ${pipelines.length === 0
+      ? '<div class="settings-dialog-empty">保存済み設定はありません</div>'
+      : pipelines
+        .map(
+          (p) => `
                     <div class="settings-dialog-item">
                         <div class="settings-dialog-item-info" onclick="selectSettingsToLoad('${p.filename}')">
                             <div class="settings-dialog-item-name">${p.name}</div>
@@ -824,9 +934,9 @@ function showLoadDialog(pipelines) {
                         <button class="btn-danger" onclick="deleteSettings('${p.filename}')">削除</button>
                     </div>
                 `,
-                        )
-                        .join("")
-                }
+        )
+        .join("")
+    }
             </div>
             <div class="settings-dialog-buttons">
                 <button onclick="closeSettingsDialog()">キャンセル</button>
@@ -839,37 +949,6 @@ function showLoadDialog(pipelines) {
   dialog.id = "settings-dialog";
   dialog.innerHTML = html;
   document.body.appendChild(dialog);
-}
-
-async function selectSettingsToLoad(filename) {
-  closeSettingsDialog();
-  setStatus("processing", "設定を読み込み中...");
-
-  try {
-    const res = await fetch("/api/pipelines/load", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: filename }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "読み込み失敗");
-    }
-
-    const data = await res.json();
-    pipeline = data.pipeline;
-    currentSettingsName = data.name;
-    intermediateImages = [];
-    selectedStep = null;
-    viewMode = "original";
-    updateCurrentSettingsDisplay();
-    renderPipeline();
-    setStatus("success", `読み込み完了: ${data.name}`);
-    setTimeout(() => setStatus("", ""), 2000);
-  } catch (e) {
-    setStatus("error", "エラー: " + e.message);
-  }
 }
 
 // ===== 設定削除 =====
@@ -914,12 +993,11 @@ async function showDeleteDialog() {
                         z-index:1000; max-height:80vh; overflow-y:auto; min-width:400px;">
                 <h3>Pipeline削除</h3>
                 <div style="max-height:400px; overflow-y:auto; margin-bottom:15px;">
-                    ${
-                      data.pipelines.length === 0
-                        ? "<p>保存済みpipelineはありません</p>"
-                        : data.pipelines
-                            .map(
-                              (p, i) => `
+                    ${data.pipelines.length === 0
+        ? "<p>保存済みpipelineはありません</p>"
+        : data.pipelines
+          .map(
+            (p, i) => `
                         <div style="padding:10px; margin:5px 0; border:1px solid #ddd; border-radius:4px; display:flex; justify-content:space-between; align-items:center;">
                             <div>
                                 <strong>${p.name}</strong>
@@ -933,9 +1011,9 @@ async function showDeleteDialog() {
                             </button>
                         </div>
                     `,
-                            )
-                            .join("")
-                    }
+          )
+          .join("")
+      }
                 </div>
                 <button onclick="closePipelineDialog()" style="padding:8px 16px; cursor:pointer;">閉じる</button>
             </div>
