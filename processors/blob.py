@@ -41,7 +41,6 @@ def blob_analysis(img, params, **kwargs):
     else:
         gray = img
         vis = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     # --- contours ---
@@ -111,7 +110,7 @@ def blob_analysis(img, params, **kwargs):
             continue
 
         mask = np.zeros(gray.shape, np.uint8)
-        cv2.drawContours(mask, [cnt], -1, 255, -1)
+        cv2.drawContours(mask, [cnt], -1, 255, -1)  # type: ignore
 
         mean_value = cv2.mean(gray, mask=mask)[0]
 
@@ -161,7 +160,7 @@ def blob_analysis(img, params, **kwargs):
         box = np.int32(box)
 
         cv2.drawContours(vis, [cnt], -1, (0, 255, 0), 1)
-        cv2.drawContours(vis, [box], 0, (0, 0, 255), 2)
+        cv2.drawContours(vis, [box], 0, (0, 0, 255), 2)  # type: ignore
 
         cv2.circle(vis, (cx, cy), 3, (255, 0, 0), -1)
 

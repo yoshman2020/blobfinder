@@ -1,79 +1,68 @@
 import cv2
 import numpy as np
 
+from .image_utils import ensure_binary
+from .morphology_utils import _kernel
 from .registry import register
-
-
-def _kernel(params):
-    k = int(params.get("kernel", 3))
-    return np.ones((k, k), np.uint8)
-
-
-def ensure_binary(img):
-    if len(img.shape) == 3:
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, b = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-    return b
 
 
 @register("opening")
 def opening(img, params, **kwargs):
+    img = ensure_binary(img)
     return cv2.morphologyEx(img, cv2.MORPH_OPEN, _kernel(params))
 
 
 @register("closing")
 def closing(img, params, **kwargs):
+    img = ensure_binary(img)
     return cv2.morphologyEx(img, cv2.MORPH_CLOSE, _kernel(params))
 
 
 @register("dilate")
 def dilate(img, params, **kwargs):
+    img = ensure_binary(img)
     itr = int(params.get("iterations", 1))
     return cv2.dilate(img, _kernel(params), iterations=itr)
 
 
 @register("erode")
 def erode(img, params, **kwargs):
+    img = ensure_binary(img)
     itr = int(params.get("iterations", 1))
     return cv2.erode(img, _kernel(params), iterations=itr)
 
 
 @register("morphology")
 def morphology_gradient(img, params, **kwargs):
+    img = ensure_binary(img)
     return cv2.morphologyEx(img, cv2.MORPH_GRADIENT, _kernel(params))
 
 
 @register("top_hat")
 def top_hat(img, params, **kwargs):
+    img = ensure_binary(img)
     return cv2.morphologyEx(img, cv2.MORPH_TOPHAT, _kernel(params))
 
 
 @register("black_hat")
 def black_hat(img, params, **kwargs):
+    img = ensure_binary(img)
     return cv2.morphologyEx(img, cv2.MORPH_BLACKHAT, _kernel(params))
-
-
-def binary_fill_holes(binary):
-    # binary: 0/255 の2値画像
-    flood = binary.copy()
-
-    h, w = binary.shape[:2]
-    mask = np.zeros((h + 2, w + 2), np.uint8)
-
-    # 背景を塗りつぶす
-    cv2.floodFill(flood, mask, (0, 0), 255)  # type: ignore
-
-    # 背景を反転
-    flood_inv = cv2.bitwise_not(flood)
-
-    # 元画像と合成すると穴が埋まる
-    return cv2.bitwise_or(binary, flood_inv)
 
 
 @register("fill_holes")
 def fill_holes(img, params, **kwargs):
-    b = ensure_binary(img)
-    filled = binary_fill_holes(b)
+    img = ensure_binary(img)
+    flood = img.copy()
+    h, w = img.shape[:2]
+    mask = np.zeros((h + 2, w + 2), np.uint8)
+    # 外側から黒を白に塗り潰す（背景を白にする）
+    cv2.floodFill(flood, mask, (0, 0), 255)  # type: ignore
+
+    # flood の黒い領域 = 穴（背景から繋がってない黒）
+    # これを白にして元画像に足す
+    flood_inv = cv2.bitwise_not(flood)  # 穴だけ（白）、その他黒
+    filled = cv2.bitwise_or(img, flood_inv)
     return filled
 
 
