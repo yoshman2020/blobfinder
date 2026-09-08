@@ -223,17 +223,34 @@ button.btn-remove:hover {
   color: white;
 }
 
-/* 処理ボタングリッド */
+/* 処理ボタン */
+.button-group {
+  padding: 0;
+  margin-bottom: 8px;
+  background: transparent;
+  border: none;
+}
+
+.button-group legend {
+  padding: 0;
+  font-weight: bold;
+  font-size: 11px;
+  color: #666;
+  margin-left: 0;
+  margin-bottom: 4px;
+}
+
 .proc-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
+  gap: 3px;
+  margin-top: 0;
 }
 
 .proc-grid button {
-  font-size: 11px;
-  padding: 3px 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 /* 画像処理リスト */
