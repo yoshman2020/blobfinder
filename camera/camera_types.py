@@ -11,7 +11,6 @@ from .sentech_camera import SentechCamera
 from .toshiba_teli_camera import ToshibaTeliCamera
 
 CAMERA_TYPES: dict[str, type[CameraBase]] = {
-    "opencv": OpenCVCamera,
     "sentech": SentechCamera,
     "lucid": LucidCamera,
     "jai": JAICamera,
@@ -21,4 +20,5 @@ CAMERA_TYPES: dict[str, type[CameraBase]] = {
     "basler": BaslerCamera,
     "gige": GigEVisionCamera,
     "owlift": OwliftCamera,
+    "opencv": OpenCVCamera,
 }

@@ -107,7 +107,7 @@ button.btn-stop:hover {
 
 /* パネル */
 .panel {
-  width: 300px;
+  width: 20%;
   background: white;
   border-left: 1px solid #ddd;
   overflow-y: auto;
@@ -118,6 +118,34 @@ section {
   margin-bottom: 12px;
   border-bottom: 1px solid #eee;
   padding-bottom: 8px;
+}
+
+.section-toggle {
+  font-weight: bold;
+  padding-bottom: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.section-toggle::before {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-right: 6px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid #333;
+  vertical-align: middle;
+  transition: transform 0.15s;
+}
+
+section.collapsed .section-toggle::before {
+  transform: rotate(-90deg);
+}
+
+section.collapsed .section-body {
+  display: none;
 }
 
 /* ボタン共通 */
@@ -150,6 +178,87 @@ button.btn-remove {
 
 button.btn-remove:hover {
   background: #dc2626;
+}
+
+/* bootstrap風 */
+.mt-2 {
+  margin-top: 2px;
+}
+
+.mt-4 {
+  margin-top: 4px;
+}
+
+.mt-6 {
+  margin-top: 6px;
+}
+
+.mt-8 {
+  margin-top: 8px;
+}
+
+.ms-4 {
+  margin-left: 4px;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+.fs-10 {
+  font-size: 10px;
+}
+
+.fs-11 {
+  font-size: 11px;
+}
+
+.fs-12 {
+  font-size: 12px;
+}
+
+.fw-bold {
+  font-weight: bold;
+}
+
+.d-flex {
+  display: flex;
+}
+
+.d-none {
+  display: none;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.frex-1 {
+  flex: 1;
+}
+
+.gap-4 {
+  gap: 4px;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.text-gray {
+  color: #666;
+}
+
+.text-lightgray {
+  color: #888;
+}
+
+/* カメラ */
+#cam-fps {
+  font-size: 12px;
+  line-height: 26px;
+  color: #16a34a;
+  font-weight: bold;
 }
 
 /* 画像一覧 */
@@ -290,6 +399,25 @@ button.btn-remove:hover {
 .params label {
   font-size: 11px;
   margin-right: 8px;
+}
+
+/* 共有メモリ制御 */
+.shm-image {
+  width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  background: #111;
+  border: 1px solid #ccc;
+}
+
+.shm-image-label {
+  font-size: 10px;
+  color: #666;
+}
+
+#shm-queue-max {
+  width: 50px;
+  font-size: 11px;
 }
 
 /* ===== 設定管理 ===== */
@@ -715,4 +843,41 @@ input[type="file"] {
 
 .img-info {
   flex-shrink: 0;
+}
+
+
+/* ===== 共有メモリパネル ===== */
+.shm-section {
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+
+.shm-section h3 {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.shm-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.shm-status span {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.shm-result {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 6px;
+  margin-top: 4px;
 }

@@ -19,7 +19,7 @@ class OwliftCamera(CameraBase):
     PARAMS: ClassVar[dict[str, str]] = {
         "width": "width",
         "height": "height",
-        #TODO カメラ固有設定
+        # TODO カメラ固有設定
         "gain_control": "gain_control",
         "manual_gain_min": "manual_gain_min",
         "manual_gain_max": "manual_gain_max",
@@ -39,7 +39,7 @@ class OwliftCamera(CameraBase):
         if owlift is None:
             return []
         cameras = []
-        for dev in owlift.devices(): # type: ignore
+        for dev in owlift.devices():  # type: ignore
             cameras.append(
                 {
                     "type": "owlift",
@@ -57,16 +57,16 @@ class OwliftCamera(CameraBase):
     def open(self, serial: str) -> bool:
         if owlift is None:
             return False
-        self.ows = owlift.devices() # type: ignore
+        self.ows = owlift.devices()  # type: ignore
         for dev in self.ows:
             if dev.serial_number == serial:
                 self.ow = dev
                 self.ow.image_enabled = True
-                self.ow.color = owlift.OwColor.RAINBOW # type: ignore
+                self.ow.color = owlift.OwColor.RAINBOW  # type: ignore
                 # self.ow.color = owlift.OwColor.BLUE_ORANGE
                 # self.ow.color = owlift.OwColor.GRAY
 
-                self.ow.gain_control = owlift.OwGainControl.AUTO_NON_LINEAR # type: ignore
+                self.ow.gain_control = owlift.OwGainControl.AUTO_NON_LINEAR  # type: ignore
                 # self.ow.gain_control = owlift.OwGainControl.AUTO_LINEAR
                 self.ow.capture_start()
 
@@ -74,7 +74,9 @@ class OwliftCamera(CameraBase):
                 while self.ow.alive and self.ow.frame_counter == 0:
                     # wait for the first frame to be captured
                     if wait_count >= 1000:  # 最大1000回待つ
-                        logger.error("Failed to capture the first frame from Owlift camera.")
+                        logger.error(
+                            "Failed to capture the first frame from Owlift camera."
+                        )
                         self.close()
                         return False
                 return True
@@ -92,7 +94,9 @@ class OwliftCamera(CameraBase):
         try:
             _, frame, _ = self.ow.frame
             if frame is None:
-                logger.error("Failed to read frame from Owlift camera: Frame is None")
+                logger.error(
+                    "Failed to read frame from Owlift camera: Frame is None"
+                )
                 return False, None
             return True, frame
         except Exception as e:  # noqa: BLE001
@@ -110,9 +114,15 @@ class OwliftCamera(CameraBase):
                 return None
 
             if name == "width":
-                return self.ow.frame_size[0]
+                width = self.ow.frame_size[0]
+                if self.ow.magnification_enabled:
+                    width = width * 3
+                return width
             elif name == "height":
-                return self.ow.frame_size[1]
+                height = self.ow.frame_size[1]
+                if self.ow.magnification_enabled:
+                    height = height * 3
+                return height
             elif name == "gain_control":
                 return self.ow.gain_control
             elif name == "manual_gain_min":
@@ -137,10 +147,10 @@ class OwliftCamera(CameraBase):
                 return False
 
             if name == "width" or name == "height":
-                logger.error(
-                    f"Parameter {name} is read-only for Owlift camera."
-                )
-                return False
+                # 解像度に160x120以上の値が設定された場合、画像を縦横3倍に拡大しアンチエイリアス処理
+                self.ow.magnification_enabled = (
+                    name == "width" and value > 160
+                ) or (name == "height" and value > 120)
             if name == "gain_control":
                 self.ow.gain_control = value
             elif name == "manual_gain_min":

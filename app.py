@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import logging.handlers
+import mimetypes
 import os
 import threading
 import time
@@ -22,6 +23,7 @@ from api.models import ProcessRequest
 from camera.discovery import discover_all
 from camera.manager import CameraManager
 from processors.pipeline import apply_pipeline
+from shm.shm_controller import ShmController
 from system.system_manager import SystemManager
 
 
@@ -74,11 +76,15 @@ system = SystemManager()
 async def lifespan(app: FastAPI):
     # 起動時
     system.initialize()
+    loop = asyncio.get_event_loop()
+    shm_ctrl.start(loop)
     yield  # ←ここでアプリ実行中状態
     # 終了時
+    shm_ctrl.stop()
     system.shutdown()
 
 
+mimetypes.add_type("application/javascript", ".js")
 app = FastAPI(title="Image Processing App", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -230,9 +236,14 @@ async def process_image(image_id: str, request: ProcessRequest):
 
 @app.get("/download/{image_id}")
 async def download_result(image_id: str):
+    if not image_id:
+        raise HTTPException(status_code=400)
     path = OUTPUT_DIR / f"{image_id}.png"
     if not path.exists():
-        raise HTTPException(status_code=404)
+        # 出力フォルダにない場合は、アップロードフォルダにあるか確認
+        path = UPLOAD_DIR / f"{image_id}.png"
+        if not path.exists():
+            raise HTTPException(status_code=404)
     return FileResponse(
         path,
         media_type="image/png",
@@ -464,6 +475,16 @@ _cam_lock = threading.Lock()
 
 camera_manager = CameraManager()
 
+# =====================
+# Shared Memory Controller
+# =====================
+
+shm_ctrl = ShmController(
+    camera_manager=camera_manager,
+    cam_lock=_cam_lock,
+    pipeline_dir=PIPELINE_DIR,
+)
+
 _fps_stat = {"fps": 0.0, "count": 0, "t": 0.0}
 
 # カメラパラメータ定義
@@ -666,3 +687,60 @@ async def camera_capture():
     except Exception as e:
         logger.exception("capture error: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =====================
+# Shared Memory: WebSocket 結果配信 & REST API
+# =====================
+
+
+@app.websocket("/ws/shm_result")
+async def ws_shm_result(websocket: WebSocket):
+    """共有メモリ経由の処理結果をブラウザにリアルタイム配信"""
+    await websocket.accept()
+    q = shm_ctrl.subscribe()
+    try:
+        while True:
+            result = await asyncio.wait_for(q.get(), timeout=30.0)
+            await websocket.send_text(json.dumps(result, ensure_ascii=False))
+    except asyncio.TimeoutError:
+        pass
+    except Exception as e:
+        logger.debug("ws_shm_result closed: %s", e)
+    finally:
+        shm_ctrl.unsubscribe(q)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+@app.get("/api/shm/status")
+async def shm_status():
+    """共有メモリコントローラの現在状態を返す"""
+    return shm_ctrl.get_status()
+
+
+class ShmPipelineSyncRequest(BaseModel):
+    pipeline: list
+    name: str = ""
+
+
+@app.post("/api/shm/pipeline_sync")
+async def shm_pipeline_sync(req: ShmPipelineSyncRequest):
+    """ブラウザ側の現在 pipeline を ShmController に同期する"""
+    shm_ctrl.set_browser_pipeline(req.pipeline, req.name)
+    return {"success": True}
+
+
+class ShmQueueMaxRequest(BaseModel):
+    queue_max: int
+
+
+@app.post("/api/shm/queue_max")
+async def shm_set_queue_max(req: ShmQueueMaxRequest):
+    """撮影キューの最大数を変更する"""
+    if req.queue_max < 1:
+        raise HTTPException(status_code=400, detail="queue_max must be >= 1")
+    shm_ctrl._queue_max = req.queue_max
+    return {"success": True, "queue_max": req.queue_max}
