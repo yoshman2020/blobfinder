@@ -29,7 +29,7 @@ from .layout import (
     write_json_field,
 )
 
-logger = logging.getLogger("blobfinder.shm")
+logger = logging.getLogger(__name__)
 
 # デフォルトのキュー最大数
 DEFAULT_QUEUE_MAX = 10
@@ -101,15 +101,25 @@ class ShmController:
             self._shm = shared_memory.SharedMemory(
                 name=SHM_NAME, create=True, size=TOTAL_SIZE
             )
-            logger.info("shared memory created: %s (%d bytes)", SHM_NAME, TOTAL_SIZE)
+            logger.info(
+                "shared memory created: %s (%d bytes)", SHM_NAME, TOTAL_SIZE
+            )
         except FileExistsError:
             self._shm = shared_memory.SharedMemory(name=SHM_NAME, create=False)
             logger.info("shared memory attached: %s", SHM_NAME)
 
         # 結果領域を初期化
-        self._write_result({"status": "idle", "error": None, "seq": -1,
-                            "captured_at": None, "capture_b64": None,
-                            "result_b64": None, "blobs": None})
+        self._write_result(
+            {
+                "status": "idle",
+                "error": None,
+                "seq": -1,
+                "captured_at": None,
+                "capture_b64": None,
+                "result_b64": None,
+                "blobs": None,
+            }
+        )
 
         self._poll_thread = threading.Thread(
             target=self._poll_loop, daemon=True, name="shm-poll"
@@ -181,7 +191,7 @@ class ShmController:
             time.sleep(POLL_INTERVAL)
 
     def _poll_once(self):
-        raw = read_json_field(self._shm.buf, 0, CMD_SIZE) # type: ignore
+        raw = read_json_field(self._shm.buf, 0, CMD_SIZE)  # type: ignore
         if not raw:
             return
         try:
@@ -215,13 +225,17 @@ class ShmController:
             if self._cam_mgr.camera is None:
                 ok = self._open_first_camera()
                 if not ok:
-                    self._write_result({
-                        "status": "error",
-                        "error": "カメラに接続できませんでした",
-                        "seq": seq,
-                        "captured_at": None, "capture_b64": None,
-                        "result_b64": None, "blobs": None,
-                    })
+                    self._write_result(
+                        {
+                            "status": "error",
+                            "error": "カメラに接続できませんでした",
+                            "seq": seq,
+                            "captured_at": None,
+                            "capture_b64": None,
+                            "result_b64": None,
+                            "blobs": None,
+                        }
+                    )
                     self._publish_result()
                     return
                 logger.info("stream_start: camera opened")
@@ -244,13 +258,17 @@ class ShmController:
             if found:
                 filepath = found
             else:
-                self._write_result({
-                    "status": "error",
-                    "error": f"pipeline '{name}' が見つかりません",
-                    "seq": seq,
-                    "captured_at": None, "capture_b64": None,
-                    "result_b64": None, "blobs": None,
-                })
+                self._write_result(
+                    {
+                        "status": "error",
+                        "error": f"pipeline '{name}' が見つかりません",
+                        "seq": seq,
+                        "captured_at": None,
+                        "capture_b64": None,
+                        "result_b64": None,
+                        "blobs": None,
+                    }
+                )
                 self._publish_result()
                 return
         try:
@@ -261,20 +279,26 @@ class ShmController:
                 self._pipeline_name = data.get("name", filepath.stem)
             logger.info("pipeline loaded via shm: %s", filepath.name)
             # ブラウザに pipeline 内容を通知して画面表示を更新させる
-            self._publish_event({
-                "event": "pipeline_select",
-                "pipeline": self._pipeline,
-                "pipeline_name": self._pipeline_name,
-                "seq": seq,
-            })
+            self._publish_event(
+                {
+                    "event": "pipeline_select",
+                    "pipeline": self._pipeline,
+                    "pipeline_name": self._pipeline_name,
+                    "seq": seq,
+                }
+            )
         except Exception as e:  # noqa: BLE001
-            self._write_result({
-                "status": "error",
-                "error": f"pipeline 読み込みエラー: {e}",
-                "seq": seq,
-                "captured_at": None, "capture_b64": None,
-                "result_b64": None, "blobs": None,
-            })
+            self._write_result(
+                {
+                    "status": "error",
+                    "error": f"pipeline 読み込みエラー: {e}",
+                    "seq": seq,
+                    "captured_at": None,
+                    "capture_b64": None,
+                    "result_b64": None,
+                    "blobs": None,
+                }
+            )
             self._publish_result()
 
     def _enqueue_capture(self, seq: int):
@@ -310,13 +334,17 @@ class ShmController:
             if self._cam_mgr.camera is None:
                 ok = self._open_first_camera()
                 if not ok:
-                    self._write_result({
-                        "status": "error",
-                        "error": "カメラに接続できませんでした",
-                        "seq": seq,
-                        "captured_at": None, "capture_b64": None,
-                        "result_b64": None, "blobs": None,
-                    })
+                    self._write_result(
+                        {
+                            "status": "error",
+                            "error": "カメラに接続できませんでした",
+                            "seq": seq,
+                            "captured_at": None,
+                            "capture_b64": None,
+                            "result_b64": None,
+                            "blobs": None,
+                        }
+                    )
                     self._publish_result()
                     return
 
@@ -325,13 +353,17 @@ class ShmController:
         with self._cam_lock:
             ok, frame = self._cam_mgr.read()
         if not ok or frame is None:
-            self._write_result({
-                "status": "error",
-                "error": "撮影に失敗しました",
-                "seq": seq,
-                "captured_at": captured_at, "capture_b64": None,
-                "result_b64": None, "blobs": None,
-            })
+            self._write_result(
+                {
+                    "status": "error",
+                    "error": "撮影に失敗しました",
+                    "seq": seq,
+                    "captured_at": captured_at,
+                    "capture_b64": None,
+                    "result_b64": None,
+                    "blobs": None,
+                }
+            )
             self._publish_result()
             return
 
@@ -341,41 +373,55 @@ class ShmController:
             pipeline_name = self._pipeline_name
 
         if not pipeline:
-            self._write_result({
-                "status": "error",
-                "error": "画像処理リストが選択されていません",
-                "seq": seq,
-                "captured_at": captured_at,
-                "capture_b64": self._encode_jpeg(frame),
-                "result_b64": None, "blobs": None,
-            })
+            self._write_result(
+                {
+                    "status": "error",
+                    "error": "画像処理リストが選択されていません",
+                    "seq": seq,
+                    "captured_at": captured_at,
+                    "capture_b64": self._encode_jpeg(frame),
+                    "result_b64": None,
+                    "blobs": None,
+                }
+            )
             self._publish_result()
             return
 
         # 画像処理
-        self._write_result({
-            "status": "processing", "error": None, "seq": seq,
-            "captured_at": captured_at, "capture_b64": None,
-            "result_b64": None, "blobs": None,
-        })
+        self._write_result(
+            {
+                "status": "processing",
+                "error": None,
+                "seq": seq,
+                "captured_at": captured_at,
+                "capture_b64": None,
+                "result_b64": None,
+                "blobs": None,
+            }
+        )
         self._publish_result()
 
         try:
             from api.models import ProcessStep
             from processors.pipeline import apply_pipeline
 
-            steps = [ProcessStep(type=s["type"], params=s.get("params", {}))
-                     for s in pipeline]
+            steps = [
+                ProcessStep(type=s["type"], params=s.get("params", {}))
+                for s in pipeline
+            ]
             result_img, blobs, _ = apply_pipeline(frame, steps)
         except Exception as e:  # noqa: BLE001
-            self._write_result({
-                "status": "error",
-                "error": f"画像処理エラー: {e}",
-                "seq": seq,
-                "captured_at": captured_at,
-                "capture_b64": self._encode_jpeg(frame),
-                "result_b64": None, "blobs": None,
-            })
+            self._write_result(
+                {
+                    "status": "error",
+                    "error": f"画像処理エラー: {e}",
+                    "seq": seq,
+                    "captured_at": captured_at,
+                    "capture_b64": self._encode_jpeg(frame),
+                    "result_b64": None,
+                    "blobs": None,
+                }
+            )
             self._publish_result()
             return
 
@@ -402,6 +448,7 @@ class ShmController:
     def _open_first_camera(self) -> bool:
         """カメラ一覧を取得して先頭に接続（cam_lock 保持中に呼ぶこと）"""
         from camera.discovery import discover_all
+
         cameras = discover_all()
         if not cameras:
             return False
@@ -411,6 +458,7 @@ class ShmController:
         try:
             import uuid as _uuid
             from pathlib import Path
+
             upload_dir = Path(__file__).parent.parent / "uploads"
             upload_dir.mkdir(exist_ok=True)
             image_id = str(_uuid.uuid4())
@@ -462,7 +510,7 @@ class ShmController:
             subs = list(self._result_subscribers)
         for q in subs:
             try:
-                self._loop.call_soon_threadsafe(q.put_nowait, data) # type: ignore
+                self._loop.call_soon_threadsafe(q.put_nowait, data)  # type: ignore
             except asyncio.QueueFull:
                 pass
             except Exception:  # noqa: BLE001, S110

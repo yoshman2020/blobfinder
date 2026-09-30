@@ -7,7 +7,7 @@ import logging
 
 from .base import CameraBase
 
-logger = logging.getLogger("Camera")
+logger = logging.getLogger(__name__)
 
 
 class ToshibaTeliCamera(CameraBase):
