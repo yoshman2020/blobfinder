@@ -90,14 +90,14 @@ class OwliftCamera(CameraBase):
             ],
         },
         "manual_gain_min": {
-            "label": "温度範囲（最低）",
+            "label": "温度範囲(最低)(K)",
             "type": "range",
             "min": 0,
             "max": 100,
             "step": 1,
         },
         "manual_gain_max": {
-            "label": "温度範囲（最高）",
+            "label": "温度範囲(最高)(K)",
             "type": "range",
             "min": 0,
             "max": 100,
@@ -148,12 +148,13 @@ class OwliftCamera(CameraBase):
             if dev.serial_number == serial:
                 self.ow = dev
                 self.ow.image_enabled = True
-                self.ow.color = owlift.OwColor.RAINBOW  # type: ignore
-                # self.ow.color = owlift.OwColor.BLUE_ORANGE
-                # self.ow.color = owlift.OwColor.GRAY
+                self.ow.color = owlift.OwColor.GRAY  # type: ignore
+                # self.ow.color = owlift.OwColor.BLUE_ORANGE  # type: ignore
+                # self.ow.color = owlift.OwColor.RAINBOW  # type: ignore
 
+                # self.ow.gain_control = owlift.OwGainControl.MANUAL  # type: ignore
+                # self.ow.gain_control = owlift.OwGainControl.AUTO_LINEAR  # type: ignore
                 self.ow.gain_control = owlift.OwGainControl.AUTO_NON_LINEAR  # type: ignore
-                # self.ow.gain_control = owlift.OwGainControl.AUTO_LINEAR
                 self.ow.capture_start()
 
                 wait_count = 0
