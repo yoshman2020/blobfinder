@@ -222,6 +222,29 @@ function renderCameraParam(param) {
             `;
             break;
 
+        case "radio":
+            control = `
+                <div class="cam-radio-group">
+                    ${(param.options || [])
+                    .map(
+                        (option, index) => `
+                            <label style="margin-right: 10px; cursor: pointer;">
+                                <input
+                                    type="radio"
+                                    name="cparam-${key}"
+                                    id="cparam-${key}-${index}"
+                                    value="${option.value}"
+                                    ${String(option.value) === String(value) ? "checked" : ""}
+                                >
+                                ${option.label}
+                            </label>
+                        `
+                    )
+                    .join("")}
+                </div>
+            `;
+            break;
+
         case "checkbox":
             control = `
                 <input
@@ -275,7 +298,13 @@ export async function applyCamParams() {
             if (el.disabled) return;
             // rangeの連動用数値入力（-valueで終わるもの）は重複するためスキップする
             if (el.id.endsWith("-value")) return;
-            const key = el.id.replace("cparam-", "");
+            // ラジオボタンの場合、チェックされていないものはスキップ
+            if (el.type === "radio" && !el.checked) return;
+            let key = el.id.replace("cparam-", "");
+            if (el.type === "radio") {
+                // 例: "color-0" -> "color" のようにハイフン以降（インデックス）を削る
+                key = key.substring(0, key.lastIndexOf("-"));
+            }
             if (el.type === "checkbox") {
                 params[key] = el.checked;
             } else if (el.type === "number") {
@@ -284,6 +313,9 @@ export async function applyCamParams() {
                 params[key] = Number(el.value);
             } else if (el.tagName === "SELECT") {
                 params[key] = el.value;
+            } else if (el.type === "radio") {
+                // 選択されているラジオボタンの値（必要に応じて Number に変換）
+                params[key] = isNaN(el.value) ? el.value : Number(el.value);
             }
         });
     const res = await fetch("/camera/params", {

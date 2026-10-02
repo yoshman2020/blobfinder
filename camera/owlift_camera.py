@@ -2,6 +2,7 @@
 # infinitegra OWLIFT Type-F Camera Implementation
 
 import logging
+from enum import IntEnum
 from typing import ClassVar
 
 from numpy import ndarray
@@ -14,6 +15,16 @@ except ImportError:
 from .base import CameraBase, CameraParamDef
 
 logger = logging.getLogger(__name__)
+
+
+class ManualGainUnit(IntEnum):
+    # 温度単位
+    # ケルビン(K)
+    KELVIN = 0
+    # 摂氏(℃)
+    CELSIUS = 1
+    # 華氏(℉)
+    FAHRENHEIT = 2
 
 
 class OwliftCamera(CameraBase):
@@ -89,15 +100,33 @@ class OwliftCamera(CameraBase):
                 },
             ],
         },
+        "manual_gain_unit": {
+            "label": "温度単位",
+            "type": "radio",
+            "options": [
+                {
+                    "value": ManualGainUnit.KELVIN,
+                    "label": "K",
+                },
+                {
+                    "value": ManualGainUnit.CELSIUS,
+                    "label": "℃",
+                },
+                {
+                    "value": ManualGainUnit.FAHRENHEIT,
+                    "label": "℉",
+                },
+            ],
+        },
         "manual_gain_min": {
-            "label": "温度範囲(最低)(K)",
+            "label": "温度範囲(最低)",
             "type": "range",
             "min": 0,
             "max": 100,
             "step": 0.01,
         },
         "manual_gain_max": {
-            "label": "温度範囲(最高)(K)",
+            "label": "温度範囲(最高)",
             "type": "range",
             "min": 0,
             "max": 100,
@@ -109,6 +138,10 @@ class OwliftCamera(CameraBase):
             "min": 0,
             "max": 100,
             "step": 0.01,
+        },
+        "undistortion": {
+            "label": "歪み補正",
+            "type": "checkbox",
         },
     }
 
@@ -153,9 +186,12 @@ class OwliftCamera(CameraBase):
                 # self.ow.color = owlift.OwColor.RAINBOW  # type: ignore
 
                 # self.ow.gain_control = owlift.OwGainControl.MANUAL  # type: ignore
-                # self.ow.gain_control = owlift.OwGainControl.AUTO_LINEAR  # type: ignore
-                self.ow.gain_control = owlift.OwGainControl.AUTO_NON_LINEAR  # type: ignore
+                self.ow.gain_control = owlift.OwGainControl.AUTO_LINEAR  # type: ignore
+                # self.ow.gain_control = owlift.OwGainControl.AUTO_NON_LINEAR  # type: ignore
                 self.ow.capture_start()
+
+                # 温度単位を初期化（デフォルトはケルビン）
+                self.manual_gain_unit = ManualGainUnit.KELVIN
 
                 wait_count = 0
                 while self.ow.alive and self.ow.frame_counter == 0:
@@ -214,12 +250,21 @@ class OwliftCamera(CameraBase):
                 return self.ow.color
             elif name == "gain_control":
                 return self.ow.gain_control
+            elif name == "manual_gain_unit":
+                return self.manual_gain_unit.value
             elif name == "manual_gain_min":
-                return self.ow.manual_gain_range[0]
+                return self.convert_kelvin_to_kcf(
+                    self.ow.manual_gain_range[0], self.manual_gain_unit
+                )
             elif name == "manual_gain_max":
-                return self.ow.manual_gain_range[1]
+                return self.convert_kelvin_to_kcf(
+                    self.ow.manual_gain_range[1], self.manual_gain_unit
+                )
             elif name == "noise_filter":
                 return self.ow.noise_filter
+            elif name == "undistortion":
+                return self.ow.undistortion
+
             return None
         except AttributeError:
             logger.error(f"Parameter {name} not found in Owlift camera.")
@@ -240,30 +285,24 @@ class OwliftCamera(CameraBase):
                 self.ow.magnification_enabled = (
                     name == "width" and value >= self.ow.frame_size[0] * 3
                 ) or (name == "height" and value >= self.ow.frame_size[1] * 3)
-            if name == "color":
+            elif name == "color":
                 assert owlift is not None
                 try:
-                    control = owlift.OwColor(int(value))  # type: ignore
+                    self.ow.color = owlift.OwColor(int(value))  # type: ignore
                 except ValueError:
                     raise ValueError(f"Invalid color: {value}")
-                if control == owlift.OwColor.GRAY:  # type: ignore
-                    self.ow.color = owlift.OwColor.GRAY  # type: ignore
-                elif control == owlift.OwColor.BLUE_ORANGE:  # type: ignore
-                    self.ow.color = owlift.OwColor.BLUE_ORANGE  # type: ignore
-                elif control == owlift.OwColor.RAINBOW:  # type: ignore
-                    self.ow.color = owlift.OwColor.RAINBOW  # type: ignore
-            if name == "gain_control":
+            elif name == "gain_control":
                 assert owlift is not None
                 try:
-                    control = owlift.OwGainControl(int(value))  # type: ignore
+                    self.ow.gein_control = owlift.OwGainControl(int(value))  # type: ignore
                 except ValueError:
                     raise ValueError(f"Invalid gain control: {value}")
-                if control == owlift.OwGainControl.MANUAL:  # type: ignore
-                    self.ow.gain_control = owlift.OwGainControl.MANUAL  # type: ignore
-                elif control == owlift.OwGainControl.AUTO_LINEAR:  # type: ignore
-                    self.ow.gain_control = owlift.OwGainControl.AUTO_LINEAR  # type: ignore
-                elif control == owlift.OwGainControl.AUTO_NON_LINEAR:  # type: ignore
-                    self.ow.gain_control = owlift.OwGainControl.AUTO_NON_LINEAR  # type: ignore
+            elif name == "manual_gain_unit":
+                try:
+                    self.manual_gain_unit = ManualGainUnit(int(value))
+                except ValueError:
+                    raise ValueError(f"Invalid manual gain unit: {value}")
+
             elif name == "manual_gain_min":
                 # マニュアルゲインではない場合は設定不可
                 if self.ow.gain_control != owlift.OwGainControl.MANUAL:  # type: ignore
@@ -272,12 +311,15 @@ class OwliftCamera(CameraBase):
                     )
                     return False
                 current_max = self.ow.manual_gain_range[1]
-                if value > current_max:
+                manual_gain_min_kcf = self.convert_kcf_to_kelvin(
+                    value, self.manual_gain_unit
+                )
+                if manual_gain_min_kcf > current_max:
                     logger.warning(
                         f"manual_gain_min {value} is greater than manual_gain_max {current_max}. Adjusting manual_gain_max to {value}."
                     )
-                    self.ow.manual_gain_range = (value, value)
-                self.ow.manual_gain_range = (value, current_max)
+                    current_max = manual_gain_min_kcf
+                self.ow.manual_gain_range = (manual_gain_min_kcf, current_max)
             elif name == "manual_gain_max":
                 # マニュアルゲインではない場合は設定不可
                 if self.ow.gain_control != owlift.OwGainControl.MANUAL:  # type: ignore
@@ -286,14 +328,22 @@ class OwliftCamera(CameraBase):
                     )
                     return False
                 current_min = self.ow.manual_gain_range[0]
-                if value < current_min:
+                manual_gain_max_kcf = self.convert_kcf_to_kelvin(
+                    value, self.manual_gain_unit
+                )
+                if manual_gain_max_kcf < current_min:
                     logger.warning(
                         f"manual_gain_max {value} is less than manual_gain_min {current_min}. Adjusting manual_gain_min to {value}."
                     )
-                    self.ow.manual_gain_range = (value, value)
-                self.ow.manual_gain_range = (current_min, value)
+                    current_min = manual_gain_max_kcf
+                self.ow.manual_gain_range = (
+                    current_min,
+                    manual_gain_max_kcf,
+                )
             elif name == "noise_filter":
                 self.ow.noise_filter = value
+            elif name == "undistortion":
+                self.ow.undistortion = value
             return True
         except AttributeError:
             logger.error(f"Parameter {name} not found in Owlift camera.")
@@ -301,6 +351,26 @@ class OwliftCamera(CameraBase):
         except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to set parameter {name} to {value}: {e}")
             return False
+
+    def convert_kelvin_to_kcf(self, value, unit: ManualGainUnit) -> float:
+        if unit == ManualGainUnit.KELVIN:
+            return value
+        elif unit == ManualGainUnit.CELSIUS:
+            return value + 273.15
+        elif unit == ManualGainUnit.FAHRENHEIT:
+            return (value - 32) * 5 / 9 + 273.15
+        else:
+            raise ValueError(f"Invalid manual gain unit: {unit}")
+
+    def convert_kcf_to_kelvin(self, value, unit: ManualGainUnit) -> float:
+        if unit == ManualGainUnit.KELVIN:
+            return value
+        elif unit == ManualGainUnit.CELSIUS:
+            return value - 273.15
+        elif unit == ManualGainUnit.FAHRENHEIT:
+            return (value - 273.15) * 9 / 5 + 32
+        else:
+            raise ValueError(f"Invalid manual gain unit: {unit}")
 
     def get_param_defs(self) -> dict[str, CameraParamDef]:
         result = {}
