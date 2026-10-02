@@ -5,15 +5,6 @@ import { draw, fitToWindow } from "./canvas.js";
 import { loadImage } from "./image.js";
 import { setStatus, state } from "./state.js";
 
-const CAM_PARAM_LABELS = {
-    width: "Width(px)", height: "Height(px)", fps: "FPS設定",
-    brightness: "明るさ", contrast: "コントラスト", saturation: "彩度",
-    hue: "色相", gain: "ゲイン", exposure: "露光",
-    autofocus: "オートフォーカス", focus: "フォーカス", auto_exposure: "自動露光",
-};
-// チェックボックスで表示するパラメータ
-const CAM_PARAM_CHECKBOX = new Set(["autofocus", "auto_exposure"]);
-
 let _fpsTimer = null;
 
 export async function loadCameras() {
@@ -156,45 +147,130 @@ export async function captureFrame() {
 export async function loadCamParamTable() {
     const res = await fetch("/camera/params");
     if (!res.ok) return;
-    const params = await res.json();
+    const data = await res.json();
     const table = document.getElementById("cam-param-table");
-    table.innerHTML = Object.entries(params)
-        .map(([k, v]) => {
-            const label = CAM_PARAM_LABELS[k] || k;
-            const unavailable = v === null;
-            if (CAM_PARAM_CHECKBOX.has(k)) {
-                const checked = !unavailable && v > 0 ? "checked" : "";
-                const dis = unavailable ? "disabled" : "";
-                return (
-                    `<tr><td style="font-size:11px;padding:2px 4px">${label}</td>` +
-                    `<td><input type="checkbox" id="cparam-${k}" ${checked} ${dis}></td></tr>`
-                );
-            }
-            const val = !unavailable ? v : "";
-            const dis = unavailable ? "disabled" : "";
-            return (
-                `<tr><td style="font-size:11px;padding:2px 4px">${label}</td>` +
-                `<td><input type="number" id="cparam-${k}" value="${val}"` +
-                ` style="width:70px;font-size:11px;padding:1px 3px" step="any" ${dis}></td></tr>`
-            );
-        })
+    table.innerHTML = data.params
+        .map((param) => renderCameraParam(param))
         .join("");
     document.getElementById("cam-params").style.display = "";
 }
 
+function renderCameraParam(param) {
+    const key = param.key;
+    const value = param.value;
+
+    let control = "";
+
+    switch (param.type) {
+
+        case "number":
+            control = `
+                <input
+                    type="number"
+                    id="cparam-${key}"
+                    value="${value ?? ""}"
+                    min="${param.min ?? ""}"
+                    max="${param.max ?? ""}"
+                    step="${param.step ?? "any"}"
+                    ${param.readonly ? "disabled" : ""}
+                >
+            `;
+            break;
+
+        case "range":
+            control = `
+                <div class="cam-range">
+                    <input
+                        type="range"
+                        id="cparam-${key}"
+                        value="${value ?? param.min}"
+                        min="${param.min}"
+                        max="${param.max}"
+                        step="${param.step ?? 1}"
+                        oninput="updateCameraRange('${key}', this.value)"
+                    >
+                    <input
+                        type="number"
+                        id="cparam-${key}-value"
+                        value="${value ?? param.min}"
+                        min="${param.min}"
+                        max="${param.max}"
+                        step="${param.step ?? 1}"
+                        oninput="updateCameraRange('${key}', this.value)"
+                    >
+                    ${param.unit ? `<span>${param.unit}</span>` : ""}
+                </div>
+            `;
+            break;
+
+        case "select":
+            control = `
+                <select id="cparam-${key}">
+                    ${(param.options || [])
+                    .map(
+                        (option) => `
+                                <option
+                                    value="${option.value}"
+                                    ${String(option.value) === String(value) ? "selected" : ""}
+                                >
+                                    ${option.label}
+                                </option>
+                            `
+                    )
+                    .join("")}
+                </select>
+            `;
+            break;
+
+        case "checkbox":
+            control = `
+                <input
+                    type="checkbox"
+                    id="cparam-${key}"
+                    ${value ? "checked" : ""}
+                >
+            `;
+            break;
+    }
+
+    return `
+        <tr>
+            <td>${param.label || key}</td>
+            <td>${control}</td>
+        </tr>
+    `;
+}
+
+window.updateCameraRange = function (key, value) {
+    const range = document.getElementById(`cparam-${key}`);
+    const number = document.getElementById(`cparam-${key}-value`);
+
+    if (!range || !number) return;
+
+    range.value = value;
+    number.value = value;
+};
+
 export async function applyCamParams() {
     setStatus("", "");
-    const table = document.getElementById("cam-param-table");
     const params = {};
-    table.querySelectorAll("input").forEach((inp) => {
-        if (inp.disabled) return;
-        const key = inp.id.replace("cparam-", "");
-        if (inp.type === "checkbox") {
-            params[key] = inp.checked ? 1 : 0;
-        } else if (inp.value !== "") {
-            params[key] = Number(inp.value);
-        }
-    });
+    document
+        .querySelectorAll("#cam-param-table input, #cam-param-table select")
+        .forEach((el) => {
+            if (el.disabled) return;
+            // rangeの連動用数値入力（-valueで終わるもの）は重複するためスキップする
+            if (el.id.endsWith("-value")) return;
+            const key = el.id.replace("cparam-", "");
+            if (el.type === "checkbox") {
+                params[key] = el.checked;
+            } else if (el.type === "number") {
+                params[key] = Number(el.value);
+            } else if (el.type === "range") {
+                params[key] = Number(el.value);
+            } else if (el.tagName === "SELECT") {
+                params[key] = el.value;
+            }
+        });
     const res = await fetch("/camera/params", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

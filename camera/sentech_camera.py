@@ -1,16 +1,17 @@
 # camera/sentech_camera.py
 
 import logging
+from typing import ClassVar
 
 import cv2
 import numpy as np
 
 try:
-    import stapipy as st
+    import stapipy as st  # type: ignore
 except ImportError:
     st = None
 
-from .base import CameraBase
+from .base import CameraBase, CameraParamDef
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,19 @@ DISPLAY_RESIZE_FACTOR = 0.3
 
 class SentechCamera(CameraBase):
 
+    PARAMS: ClassVar[list[str]] = [
+        "Width",
+        "Height",
+        "AcquisitionFrameRate",
+        "Gain",
+        "ExposureTime",
+        "PixelFormat",
+        "TriggerMode",
+        "TriggerSource",
+        "AcquisitionMode",
+        "ExposureAuto",
+        "GainAuto",
+    ]
     # Feature names
     GAIN = "Gain"
     GAIN_RAW = "GainRaw"
@@ -174,6 +188,124 @@ class SentechCamera(CameraBase):
             return None
         return float(node_value.value)  # type: ignore
 
+    def _get_node_value(self, node):
+        assert st is not None
+        if node.principal_interface_type == st.EGCInterfaceType.IFloat:
+            return st.PyIFloat(node)
+
+        if node.principal_interface_type == st.EGCInterfaceType.IInteger:
+            return st.PyIInteger(node)
+
+        if node.principal_interface_type == st.EGCInterfaceType.IEnumeration:
+            return st.PyIEnumeration(node)
+
+        return None
+
+    def _get_node_param_def(self, label, node_name):
+        try:
+            node = self.remote_nodemap.get_node(node_name)
+
+            if node is None:
+                return None
+
+            item = {
+                "label": label,
+            }
+
+            interface_type = node.principal_interface_type
+
+            # Float
+            assert st is not None
+            if interface_type == st.EGCInterfaceType.IFloat:
+                param = st.PyIFloat(node)
+
+                item["type"] = "range"
+                item["value"] = float(param.value)
+
+                try:
+                    item["min"] = float(param.min)
+                except Exception:  # noqa: BLE001, S110
+                    pass
+
+                try:
+                    item["max"] = float(param.max)
+                except Exception:  # noqa: BLE001, S110
+                    pass
+
+                try:
+                    item["step"] = float(param.inc)
+                except Exception:  # noqa: BLE001
+                    item["step"] = 0.1
+
+            # Integer
+            elif interface_type == st.EGCInterfaceType.IInteger:
+                param = st.PyIInteger(node)
+
+                item["type"] = "range"
+                item["value"] = int(param.value)
+
+                try:
+                    item["min"] = int(param.min)
+                except Exception:  # noqa: BLE001, S110
+                    pass
+
+                try:
+                    item["max"] = int(param.max)
+                except Exception:  # noqa: BLE001, S110
+                    pass
+
+                try:
+                    item["step"] = int(param.inc)
+                except Exception:  # noqa: BLE001
+                    item["step"] = 1
+
+            # Enumeration
+            elif interface_type == st.EGCInterfaceType.IEnumeration:
+                param = st.PyIEnumeration(node)
+
+                item["type"] = "select"
+                item["value"] = param.value
+
+                options = []
+
+                try:
+                    for entry in param.entries:
+                        try:
+                            options.append(
+                                {
+                                    "value": entry.symbolic_value,
+                                    "label": entry.symbolic_value,
+                                }
+                            )
+                        except Exception:  # noqa: BLE001
+                            try:
+                                options.append(
+                                    {
+                                        "value": entry.value,
+                                        "label": str(entry),
+                                    }
+                                )
+                            except Exception:  # noqa: BLE001, S110
+                                pass
+                except Exception:  # noqa: BLE001, S110
+                    pass
+
+                item["options"] = options
+
+            else:
+                return None
+
+            try:
+                item["readonly"] = not node.is_writable
+            except Exception:  # noqa: BLE001
+                item["readonly"] = False
+
+            return item
+
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"Failed to inspect Sentech node " f"{node_name}: {e}")
+            return None
+
     def get_param(self, name) -> float | None:
         try:
             match name:
@@ -183,17 +315,17 @@ class SentechCamera(CameraBase):
                     return float(self.height)
                 case "fps":
                     return self.get_setting("AcquisitionFrameRate")
-                case "gain":
+                case "Gain":
                     if self.remote_nodemap.get_node(self.GAIN):
                         return self.get_setting(self.GAIN)
                     return self.get_setting(self.EXPOSURE_TIME_RAW)
-                case "exposure":
+                case "ExposureTime":
                     if self.remote_nodemap.get_node(self.EXPOSURE_TIME):
                         return self.get_setting(self.EXPOSURE_TIME)
                     return self.get_setting(self.EXPOSURE_TIME_RAW)
             return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"get_param error: {e}")
             return None
 
@@ -240,12 +372,12 @@ class SentechCamera(CameraBase):
                     return False
                 case "fps":
                     return False
-                case "gain":
+                case "Gain":
                     if self.remote_nodemap.get_node(self.GAIN):
                         self.edit_setting(self.GAIN, value)
                     self.edit_setting(self.EXPOSURE_TIME_RAW, value)
                     return True
-                case "exposure":
+                case "ExposureTime":
                     # モードを露光時間に
                     self.edit_setting("ExposureMode", "Timed")
                     # 自動をOFFに
@@ -256,6 +388,23 @@ class SentechCamera(CameraBase):
                     return True
             return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"set_param error: {e}")
             return False
+
+    def get_param_defs(self) -> dict[str, CameraParamDef]:
+        if self.st_device is None:
+            return {}
+
+        result = {}
+
+        for key in self.PARAMS:
+            item = self._get_node_param_def(
+                key,
+                key,
+            )
+
+            if item is not None:
+                result[key] = item
+
+        return result

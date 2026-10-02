@@ -3,16 +3,17 @@
 import platform
 import re
 import subprocess
+from typing import ClassVar
 
 import cv2
 from numpy import ndarray
 
-from .base import CameraBase
+from .base import CameraBase, CameraParamDef
 
 
 class OpenCVCamera(CameraBase):
 
-    PARAMS = {
+    PARAMS: ClassVar[dict[str, int]] = {
         "width": cv2.CAP_PROP_FRAME_WIDTH,
         "height": cv2.CAP_PROP_FRAME_HEIGHT,
         "fps": cv2.CAP_PROP_FPS,
@@ -24,6 +25,84 @@ class OpenCVCamera(CameraBase):
         "exposure": cv2.CAP_PROP_EXPOSURE,
         "focus": cv2.CAP_PROP_FOCUS,
         "autofocus": cv2.CAP_PROP_AUTOFOCUS,
+    }
+
+    PARAM_DEFS: ClassVar[dict[str, CameraParamDef]] = {
+        "width": {
+            "label": "Width",
+            "type": "number",
+            "min": 1,
+            "step": 1,
+            "unit": "px",
+        },
+        "height": {
+            "label": "Height",
+            "type": "number",
+            "min": 1,
+            "step": 1,
+            "unit": "px",
+        },
+        "fps": {
+            "label": "FPS",
+            "type": "range",
+            "min": 1,
+            "max": 240,
+            "step": 1,
+            "unit": "fps",
+        },
+        "brightness": {
+            "label": "Brightness",
+            "type": "range",
+            "min": 0,
+            "max": 255,
+            "step": 1,
+        },
+        "contrast": {
+            "label": "Contrast",
+            "type": "range",
+            "min": 0,
+            "max": 255,
+            "step": 1,
+        },
+        "saturation": {
+            "label": "Saturation",
+            "type": "range",
+            "min": 0,
+            "max": 255,
+            "step": 1,
+        },
+        "hue": {
+            "label": "Hue",
+            "type": "range",
+            "min": 0,
+            "max": 360,
+            "step": 1,
+        },
+        "gain": {
+            "label": "Gain",
+            "type": "range",
+            "min": 0,
+            "max": 255,
+            "step": 1,
+        },
+        "exposure": {
+            "label": "Exposure",
+            "type": "range",
+            "min": -13,
+            "max": 0,
+            "step": 0.1,
+        },
+        "focus": {
+            "label": "Focus",
+            "type": "range",
+            "min": 0,
+            "max": 255,
+            "step": 1,
+        },
+        "autofocus": {
+            "label": "Autofocus",
+            "type": "checkbox",
+        },
     }
 
     @classmethod
@@ -66,10 +145,12 @@ class OpenCVCamera(CameraBase):
                     if idx_str:
                         idx = int(idx_str.group(1))
                         try:
-                            names[idx] = open(dev).read().strip()
-                        except Exception:
+                            names[idx] = (
+                                open(dev).read().strip()  # noqa: SIM115
+                            )
+                        except Exception:  # noqa: BLE001, S110
                             pass
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         return names
 
@@ -114,4 +195,22 @@ class OpenCVCamera(CameraBase):
     def set_param(self, name, value) -> bool:
         if not self.cap:
             return False
+        # bool型（True/False）の場合はOpenCVが受け付けないため数値（1/0）に変換する
+        if isinstance(value, bool):
+            value = 1.0 if value else 0.0
         return self.cap.set(self.PARAMS[name], value)
+
+    def get_param_defs(self) -> dict[str, CameraParamDef]:
+        result = {}
+
+        for key, definition in self.PARAM_DEFS.items():
+            item = dict(definition)
+
+            try:
+                item["value"] = self.get_param(key)
+            except Exception:  # noqa: BLE001
+                item["value"] = None
+
+            result[key] = item
+
+        return result

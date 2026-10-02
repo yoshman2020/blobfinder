@@ -20,15 +20,6 @@ logger = logging.getLogger(__name__)
 # =====================
 _fps_stat = {"fps": 0.0, "count": 0, "t": 0.0}
 
-# カメラパラメータ定義
-_CAM_PARAMS = [
-    "width",
-    "height",
-    "fps",
-    "gain",
-    "exposure",
-]
-
 
 @router.get("/cameras")
 async def list_cameras():
@@ -36,7 +27,7 @@ async def list_cameras():
     try:
         return {"cameras": discover_all()}
     except Exception as e:
-        logger.exception(e)
+        logger.exception(e)  # noqa: TRY401
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -53,7 +44,7 @@ async def open_camera(uid: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("open camera error uid=%s: %s", uid, e)
+        logger.exception("open camera error uid=%s: %s", uid, e)  # noqa: TRY401
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -74,21 +65,34 @@ async def get_fps():
 async def get_camera_params():
     if camera_manager.camera is None:
         raise HTTPException(status_code=400, detail="No camera open")
+    camera = camera_manager.camera
+
     try:
-        result = {}
+        definitions = camera.get_param_defs()
+        params = []
+
         with _cam_lock:
-            for name in _CAM_PARAMS:
-                try:
-                    val = camera_manager.camera.get_param(name)
-                    result[name] = (
-                        round(val, 4) if isinstance(val, (int, float)) else val
-                    )
-                except Exception:
-                    result[name] = None
-        return result
+            for key, definition in definitions.items():
+                item = dict(definition)
+
+                if "value" not in item:
+                    try:
+                        item["value"] = camera.get_param(key)
+                    except Exception:  # noqa: BLE001
+                        item["value"] = None
+
+                # javascript側でkeyを使うので、ここで追加しておく
+                item["key"] = key
+
+                params.append(item)
+
+        return {
+            "camera_type": camera.__class__.__name__,
+            "params": params,
+        }
 
     except Exception as e:
-        logger.exception(e)
+        logger.exception(e)  # noqa: TRY401
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -107,7 +111,7 @@ async def set_camera_params(params: dict):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("set camera params error: %s", e)
+        logger.exception("set camera params error: %s", e)  # noqa: TRY401
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -177,7 +181,7 @@ async def camera_capture():
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("capture error: %s", e)
+        logger.exception("capture error: %s", e)  # noqa: TRY401
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -214,7 +218,7 @@ def _gen_frames():
 
 
 def update_fps():
-    global _fps_stat
+    global _fps_stat  # noqa: PLW0602
 
     _fps_stat["count"] += 1
     now = time.time()

@@ -1,7 +1,7 @@
 # camera/base.py
 
 from abc import ABC, abstractmethod
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from numpy import ndarray
 
@@ -12,6 +12,25 @@ class CameraInfo(TypedDict):
     serial: str
     name: str
     index: int
+
+
+class CameraParamDef(TypedDict, total=False):
+    key: str
+    label: str
+    type: str
+
+    # number / range
+    value: Any
+    min: float
+    max: float
+    step: float
+
+    # select
+    options: list[dict]
+
+    # UI
+    readonly: bool
+    unit: str
 
 
 class CameraBase(ABC):
@@ -50,3 +69,7 @@ class CameraBase(ABC):
     @abstractmethod
     def set_param(self, name: str, value) -> bool:
         pass
+
+    @abstractmethod
+    def get_param_defs(self) -> dict[str, CameraParamDef]:
+        return {}

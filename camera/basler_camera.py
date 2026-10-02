@@ -1,19 +1,52 @@
+# camera/basler_camera.py
+
+from typing import ClassVar
+
 try:
-    from pypylon import pylon
+    from pypylon import pylon  # type: ignore
 except ImportError:
     pylon = None
 
-from .base import CameraBase
+from .base import CameraBase, CameraParamDef
 
 
 class BaslerCamera(CameraBase):
 
-    PARAMS = {
-        "width": ("Width", False),
-        "height": ("Height", False),
-        "fps": ("AcquisitionFrameRateAbs", True),
-        "gain": ("GainRaw", True),
-        "exposure": ("ExposureTimeAbs", True),
+    PARAM_DEFS: ClassVar[dict[str, CameraParamDef]] = {
+        "width": {
+            "label": "Width",
+            "type": "number",
+            "step": 1,
+            "unit": "px",
+            "readonly": False,
+        },
+        "height": {
+            "label": "Height",
+            "type": "number",
+            "step": 1,
+            "unit": "px",
+            "readonly": False,
+        },
+        "fps": {
+            "label": "FPS",
+            "type": "range",
+            "step": 0.1,
+            "unit": "fps",
+            "readonly": True,
+        },
+        "gain": {
+            "label": "Gain",
+            "type": "range",
+            "step": 1,
+            "readonly": True,
+        },
+        "exposure": {
+            "label": "Exposure",
+            "type": "range",
+            "step": 1,
+            "unit": "us",
+            "readonly": True,
+        },
     }
 
     @classmethod
@@ -78,14 +111,29 @@ class BaslerCamera(CameraBase):
     def get_param(self, name):
         if self.cam is None:
             return None
-        node = self.cam.GetNodeMap().GetNode(self.PARAMS[name][0])
+        node = self.cam.GetNodeMap().GetNode(name)
         return node.GetValue()
 
     def set_param(self, name, value):
         if self.cam is None:
             return False
-        if not self.PARAMS[name][1]:
+        if not self.PARAM_DEFS[name].get("readonly", False):
             return False
-        node = self.cam.GetNodeMap().GetNode(self.PARAMS[name][0])
+        node = self.cam.GetNodeMap().GetNode(name)
         node.SetValue(value)
         return True
+
+    def get_param_defs(self):
+        result = {}
+
+        for key, definition in self.PARAM_DEFS.items():
+            item = dict(definition)
+
+            try:
+                item["value"] = self.get_param(key)
+            except Exception:  # noqa: BLE001
+                item["value"] = None
+
+            result[key] = item
+
+        return result

@@ -1,18 +1,59 @@
-try:
-    from pyueye import ueye
-except ImportError:
-    ueye = None
+# camera/ids_ueye_camera.py
 
 import logging
+from typing import ClassVar
 
 from numpy import ndarray
 
-from .base import CameraBase
+try:
+    from pyueye import ueye  # type: ignore
+except ImportError:
+    ueye = None
+
+from .base import CameraBase, CameraParamDef
 
 logger = logging.getLogger(__name__)
 
 
 class UeyeCamera(CameraBase):
+
+    PARAM_DEFS: ClassVar[dict[str, CameraParamDef]] = {
+        "width": {
+            "label": "Width",
+            "type": "number",
+            "readonly": True,
+            "unit": "px",
+        },
+        "height": {
+            "label": "Height",
+            "type": "number",
+            "readonly": True,
+            "unit": "px",
+        },
+        "fps": {
+            "label": "FPS",
+            "type": "range",
+            "min": 1,
+            "max": 200,
+            "step": 0.1,
+            "unit": "fps",
+        },
+        "gain": {
+            "label": "Gain",
+            "type": "range",
+            "min": 0,
+            "max": 100,
+            "step": 1,
+        },
+        "exposure": {
+            "label": "Exposure",
+            "type": "range",
+            "min": 0.1,
+            "max": 1000,
+            "step": 0.1,
+            "unit": "ms",
+        },
+    }
 
     @classmethod
     def initialize(cls):
@@ -63,9 +104,9 @@ class UeyeCamera(CameraBase):
             self.sensor = ueye.SENSORINFO()
             ueye.is_GetSensorInfo(self.h_cam, self.sensor)
 
-            logger.info("model =", self.sensor.strSensorName)
+            logger.info("model =", self.sensor.strSensorName)  # noqa: PLE1205
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Exception: {e}")
 
     def open(self, serial: str) -> bool:
@@ -96,7 +137,7 @@ class UeyeCamera(CameraBase):
             self.pitch = ueye.INT()
             ueye.is_GetImageMemPitch(self.h_cam, self.pitch)
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Exception: {e}")
         return False
 
@@ -105,7 +146,7 @@ class UeyeCamera(CameraBase):
         try:
             ueye.is_ExitCamera(self.h_cam)  # type: ignore
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Exception: {e}")
         finally:
             self.device = None
@@ -125,7 +166,7 @@ class UeyeCamera(CameraBase):
 
             frame = raw.reshape(self.height, self.width, 3)  # type: ignore
             return True, frame
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Exception: {e}")
             return False, None
 
@@ -165,7 +206,7 @@ class UeyeCamera(CameraBase):
                     return float(dExposure)
             return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"get_param error: {e}")
             return None
 
@@ -205,10 +246,25 @@ class UeyeCamera(CameraBase):
                     logger.info(
                         f"set exposure to {time_exposure}: return {nRet}"
                     )
-            if nRet != ueye.IS_SUCCESS:
-                return False
-            return True
+            return nRet == ueye.IS_SUCCESS
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"set_param error: {e}")
             return False
+
+    def get_param_defs(self) -> dict[str, CameraParamDef]:
+        result = {}
+        if self.device is None:
+            return result
+
+        for key, definition in self.PARAM_DEFS.items():
+            item = dict(definition)
+
+            try:
+                item["value"] = self.get_param(key)
+            except Exception:  # noqa: BLE001
+                item["value"] = None
+
+            result[key] = item
+
+        return result

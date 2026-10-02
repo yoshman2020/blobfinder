@@ -1,18 +1,34 @@
+# camera/lucid_camera.py
+
+from typing import ClassVar
+
 import numpy as np
 
 try:
-    from arena_api.system import system
+    from arena_api.system import system  # type: ignore
 except ImportError:
     system = None
-except Exception:
+except Exception:  # noqa: BLE001
     system = None
-except BaseException:
+except BaseException:  # noqa: BLE001
     system = None
 
-from .base import CameraBase
+from .base import CameraBase, CameraParamDef
 
 
 class LucidCamera(CameraBase):
+
+    PARAMS: ClassVar[list[str]] = [
+        "Width",
+        "Height",
+        "AcquisitionFrameRate",
+        "Gain",
+        "ExposureTime",
+        "PixelFormat",
+        "TriggerMode",
+        "TriggerSource",
+        "AcquisitionMode",
+    ]
 
     @classmethod
     def initialize(cls):
@@ -76,3 +92,77 @@ class LucidCamera(CameraBase):
             return False
         self.device.nodemap[name].value = value
         return True
+
+    def get_param_defs(self) -> dict[str, CameraParamDef]:
+        if not self.device:
+            return {}
+
+        result = {}
+
+        for key in self.PARAMS:
+            try:
+                node = self.device.nodemap[key]
+                value = node.value
+                item = {
+                    "label": key,
+                    "type": "number",
+                    "value": value,
+                }
+
+                # Enumeration
+                try:
+                    entries = node.entries
+                    if entries:
+                        options = []
+                        for entry in entries:
+                            try:
+                                options.append(
+                                    {
+                                        "value": entry.value,
+                                        "label": getattr(
+                                            entry,
+                                            "symbolic",
+                                            str(entry.value),
+                                        ),
+                                    }
+                                )
+                            except Exception:  # noqa: BLE001, S112
+                                continue
+
+                        if options:
+                            item["type"] = "select"
+                            item["options"] = options
+                except Exception:  # noqa: BLE001, S110
+                    pass
+
+                # Numeric
+                if item["type"] == "number":
+                    try:
+                        item["min"] = node.min
+                    except Exception:  # noqa: BLE001, S110
+                        pass
+
+                    try:
+                        item["max"] = node.max
+                    except Exception:  # noqa: BLE001, S110
+                        pass
+
+                    try:
+                        item["step"] = node.inc
+                    except Exception:  # noqa: BLE001, S110
+                        pass
+
+                    if "min" in item and "max" in item:
+                        item["type"] = "range"
+
+                try:
+                    item["readonly"] = not node.is_writable
+                except Exception:  # noqa: BLE001
+                    item["readonly"] = False
+
+                result[key] = item
+
+            except Exception:  # noqa: BLE001, S112
+                continue
+
+        return result

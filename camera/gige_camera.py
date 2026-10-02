@@ -3,19 +3,21 @@
 import logging
 import queue
 import threading
+from typing import ClassVar
 
-try:
-    import gi
-
-    gi.require_version("Aravis", "0.8")
-    from gi.repository import Aravis
-
-except ImportError:
-    gi = None
 import numpy as np
 from numpy import ndarray
 
-from .base import CameraBase
+try:
+    import gi  # type: ignore
+
+    gi.require_version("Aravis", "0.8")
+    from gi.repository import Aravis  # type: ignore
+
+except ImportError:
+    gi = None
+
+from .base import CameraBase, CameraParamDef
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +25,18 @@ logger = logging.getLogger(__name__)
 class GigEVisionCamera(CameraBase):
     """GigE Visionカメラの制御クラス（連続ストリーミング対応）"""
 
-    # Aravisのプロパティマッピング
-    PARAMS = {
-        "width": "Width",
-        "height": "Height",
-        "fps": "AcquisitionFrameRate",
-        "brightness": "Brightness",
-        "contrast": "Contrast",
-        "saturation": "Saturation",
-        "gain": "Gain",
-        "exposure": "ExposureTime",
-        "autofocus": "AutoFocus",
-    }
+    # Aravisのプロパティ
+    PARAMS: ClassVar[list[str]] = [
+        "Width",
+        "Height",
+        "AcquisitionFrameRate",
+        "Brightness",
+        "Contrast",
+        "Saturation",
+        "Gain",
+        "ExposureTime",
+        "AutoFocus",
+    ]
 
     # バッファ設定
     BUFFER_COUNT = 8
@@ -47,7 +49,7 @@ class GigEVisionCamera(CameraBase):
         if gi is None:
             logger.debug("Aravis library not available.")
             return
-        Aravis.update_device_list()
+        Aravis.update_device_list()  # type: ignore
 
     @classmethod
     def shutdown(cls):
@@ -61,12 +63,12 @@ class GigEVisionCamera(CameraBase):
             return {}
         names: dict[str, str] = {}
         try:
-            n_devices = Aravis.get_n_devices()
+            n_devices = Aravis.get_n_devices()  # type: ignore
             for i in range(n_devices):
-                device_id = Aravis.get_device_id(i)
-                device_address = Aravis.get_device_address(i)
+                device_id = Aravis.get_device_id(i)  # type: ignore
+                device_address = Aravis.get_device_address(i)  # type: ignore
                 names[device_id] = f"{device_id} ({device_address})"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug(f"Error getting camera names: {e}")
         return names
 
@@ -80,9 +82,9 @@ class GigEVisionCamera(CameraBase):
         cam_names = cls.get_camera_names()
 
         try:
-            n_devices = Aravis.get_n_devices()
+            n_devices = Aravis.get_n_devices()  # type: ignore
             for i in range(n_devices):
-                device_id = Aravis.get_device_id(i)
+                device_id = Aravis.get_device_id(i)  # type: ignore
                 cameras.append(
                     {
                         "type": "gige",
@@ -90,7 +92,7 @@ class GigEVisionCamera(CameraBase):
                         "name": cam_names.get(device_id) or f"GigE Camera {i}",
                     }
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug(f"Error discovering cameras: {e}")
 
         return cameras
@@ -120,7 +122,7 @@ class GigEVisionCamera(CameraBase):
         try:
             logger.debug(f"Opening GigE camera: {serial}")
             # Aravis.Camera.new(device_id) を使用
-            self.camera = Aravis.Camera.new(serial)
+            self.camera = Aravis.Camera.new(serial)  # type: ignore
 
             if not self.camera:
                 logger.debug(f"Failed to open camera: {serial}")
@@ -132,7 +134,7 @@ class GigEVisionCamera(CameraBase):
             try:
                 pixfmt = self.camera.get_string("PixelFormat")
                 logger.debug(f"Current PixelFormat: {pixfmt}")
-            except:
+            except:  # noqa: E722, S110
                 pass
 
             # 解像度確認
@@ -140,7 +142,7 @@ class GigEVisionCamera(CameraBase):
                 width = self.camera.get_integer("Width")
                 height = self.camera.get_integer("Height")
                 logger.debug(f"Camera resolution: {width}x{height}")
-            except:
+            except:  # noqa: E722, S110
                 pass
 
             # triggerMode = self.camera.get_string("TriggerMode")
@@ -167,7 +169,7 @@ class GigEVisionCamera(CameraBase):
             # バッファ準備
             logger.debug(f"Pushing {self.BUFFER_COUNT} buffers...")
             for _ in range(self.BUFFER_COUNT):
-                buffer = Aravis.Buffer.new_allocate(payload)
+                buffer = Aravis.Buffer.new_allocate(payload)  # type: ignore
                 self.stream.push_buffer(buffer)
             self.buffer_count = self.BUFFER_COUNT
             logger.debug("Buffers pushed.")
@@ -188,7 +190,7 @@ class GigEVisionCamera(CameraBase):
 
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug(f"Error opening camera: {e}")
             import traceback
 
@@ -233,7 +235,7 @@ class GigEVisionCamera(CameraBase):
             logger.debug("Camera closed.")
             self._print_stats()
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug(f"Error closing camera: {e}")
 
     def read(self) -> tuple[bool, ndarray | None]:
@@ -249,7 +251,7 @@ class GigEVisionCamera(CameraBase):
 
         except queue.Empty:
             return False, None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug(f"Error reading frame: {e}")
             return False, None
 
@@ -284,11 +286,11 @@ class GigEVisionCamera(CameraBase):
                 try:
                     status = buffer.get_status()
                     # logger.debug(f"status={status}")
-                    if status != Aravis.BufferStatus.SUCCESS:
+                    if status != Aravis.BufferStatus.SUCCESS:  # type: ignore
                         self._stats["failed_buffers"] += 1
                         self.stream.push_buffer(buffer)
                         continue
-                except:
+                except:  # noqa: E722, S110
                     pass
 
                 # 画像情報取得
@@ -330,7 +332,7 @@ class GigEVisionCamera(CameraBase):
                 # バッファを再利用キューに戻す
                 self.stream.push_buffer(buffer)
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.debug(f"Error in streaming loop: {e}")
                 break
 
@@ -387,7 +389,7 @@ class GigEVisionCamera(CameraBase):
 
                     frame = cv2.cvtColor(bayer, cv2.COLOR_BAYER_RG2BGR)
                     return frame
-                except:
+                except:  # noqa: E722
                     return bayer
 
             # その他
@@ -398,7 +400,7 @@ class GigEVisionCamera(CameraBase):
                 )
                 return frame
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug(f"Error converting buffer to ndarray: {e}")
             return None
 
@@ -408,18 +410,16 @@ class GigEVisionCamera(CameraBase):
             if not self.camera or name not in self.PARAMS:
                 return None
 
-            param_name = self.PARAMS[name]
-
             # 整数パラメータ
-            if name in ["width", "height"]:
-                value = self.camera.get_integer(param_name)
+            if name in ["Width", "Height"]:
+                value = self.camera.get_integer(name)
             # 浮動小数点パラメータ
             else:
-                value = self.camera.get_float(param_name)
+                value = self.camera.get_float(name)
 
             return float(value) if value is not None else None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug(f"Error getting parameter {name}: {e}")
             return None
 
@@ -429,18 +429,16 @@ class GigEVisionCamera(CameraBase):
             if not self.camera or name not in self.PARAMS:
                 return False
 
-            param_name = self.PARAMS[name]
-
             # 整数パラメータ
-            if name in ["width", "height"]:
-                self.camera.set_integer(param_name, int(value))
+            if name in ["Width", "Height"]:
+                self.camera.set_integer(name, int(value))
             # 浮動小数点パラメータ
             else:
-                self.camera.set_float(param_name, float(value))
+                self.camera.set_float(name, float(value))
 
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug(f"Error setting parameter {name}: {e}")
             return False
 
@@ -450,3 +448,92 @@ class GigEVisionCamera(CameraBase):
         logger.debug(f"  Completed buffers: {self._stats['completed_buffers']}")
         logger.debug(f"  Failed buffers: {self._stats['failed_buffers']}")
         logger.debug(f"  Underrun buffers: {self._stats['underrun_buffers']}")
+
+    def _get_aravis_node_info(self, node_name):
+        """
+        AravisのGenICamノード情報を取得する。
+
+        Aravisのバージョン/カメラによってAPIが異なるため、
+        取得できない情報はNoneを返す。
+        """
+        if not self.camera:
+            return None
+
+        try:
+            # get_feature() が利用できるAravis
+            if hasattr(self.camera, "get_feature"):
+                return self.camera.get_feature(node_name)
+        except Exception:  # noqa: BLE001, S110
+            pass
+
+        return None
+
+    def _make_numeric_param(
+        self,
+        key,
+        label,
+        value,
+        minimum=None,
+        maximum=None,
+        step=None,
+        readonly=False,
+    ) -> CameraParamDef:
+        item: CameraParamDef = {
+            "label": label,
+            "type": "number",
+            "value": value,
+            "readonly": readonly,
+        }
+
+        if minimum is not None:
+            item["min"] = minimum
+
+        if maximum is not None:
+            item["max"] = maximum
+
+        if step is not None:
+            item["step"] = step
+
+        # min/maxが取れたものはrange UIにする
+        if minimum is not None and maximum is not None:
+            item["type"] = "range"
+
+        return item
+
+    def get_param_defs(self) -> dict[str, CameraParamDef]:
+        if not self.camera:
+            return {}
+
+        result: dict[str, CameraParamDef] = {}
+
+        for key in self.PARAMS:
+            try:
+                value = self.get_param(key)
+                if value is None:
+                    continue
+
+                # Width / Height
+                if key in ("Width", "Height"):
+                    result[key] = self._make_numeric_param(
+                        key,
+                        key,
+                        value,
+                        readonly=False,
+                    )
+                    continue
+
+                # 現在のAravis実装では実際のmin/max取得APIが
+                # カメラ/Aravisバージョン依存なので、安全なfallback
+                # としてnumberで表示する。
+                result[key] = self._make_numeric_param(
+                    key,
+                    key,
+                    value,
+                )
+
+            except Exception as e:  # noqa: BLE001
+                logger.debug(
+                    f"Failed to build parameter definition " f"{key}: {e}"
+                )
+
+        return result

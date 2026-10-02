@@ -1,16 +1,57 @@
+# camera/toshiba_teli_camera.py
+
+import logging
+from typing import ClassVar
+
 try:
-    import pytelicam
+    import pytelicam  # type: ignore
 except ImportError:
     pytelicam = None
 
-import logging
-
-from .base import CameraBase
+from .base import CameraBase, CameraParamDef
 
 logger = logging.getLogger(__name__)
 
 
 class ToshibaTeliCamera(CameraBase):
+
+    PARAM_DEFS: ClassVar[dict[str, CameraParamDef]] = {
+        "width": {
+            "label": "Width",
+            "type": "number",
+            "readonly": False,
+            "unit": "px",
+        },
+        "height": {
+            "label": "Height",
+            "type": "number",
+            "readonly": False,
+            "unit": "px",
+        },
+        "fps": {
+            "label": "FPS",
+            "type": "range",
+            "min": 1,
+            "max": 240,
+            "step": 0.1,
+            "unit": "fps",
+        },
+        "gain": {
+            "label": "Gain",
+            "type": "range",
+            "min": 0,
+            "max": 100,
+            "step": 1,
+        },
+        "exposure": {
+            "label": "Exposure",
+            "type": "range",
+            "min": 0,
+            "max": 1000000,
+            "step": 1,
+            "unit": "us",
+        },
+    }
 
     _initialized = False
     cam_system = None
@@ -47,7 +88,7 @@ class ToshibaTeliCamera(CameraBase):
                         "name": f"Toshiba Teli {info.cam_display_name}",
                     }
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to enumerate Toshiba Teli cameras: {e}")
             return []
         return cameras
@@ -110,3 +151,20 @@ class ToshibaTeliCamera(CameraBase):
             case "exposure":
                 status = self.cam_device.cam_control.set_exposure_time_control()  # type: ignore
         return status == pytelicam.CamApiStatus.Success  # type: ignore
+
+    def get_param_defs(self) -> dict[str, CameraParamDef]:
+        result = {}
+        if self.cam_device is None:
+            return result
+
+        for key, definition in self.PARAM_DEFS.items():
+            item = dict(definition)
+
+            try:
+                item["value"] = self.get_param(key)
+            except Exception:  # noqa: BLE001
+                item["value"] = None
+
+            result[key] = item
+
+        return result

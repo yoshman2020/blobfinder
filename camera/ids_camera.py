@@ -1,13 +1,17 @@
-try:
-    from ids_peak import ids_peak, ids_peak_ipl_extension
-except ImportError:
-    ids_peak = None
+# camera/ids_camera.py
 
 import logging
+from typing import ClassVar
 
 from numpy import ndarray
 
-from .base import CameraBase
+try:
+    from ids_peak import ids_peak, ids_peak_ipl_extension  # type: ignore
+except ImportError:
+    ids_peak = None
+
+
+from .base import CameraBase, CameraParamDef
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +20,14 @@ class IDSCamera(CameraBase):
 
     _initialized = False
 
-    PARAMS = {
-        "width": "Width",
-        "height": "Height",
-        "fps": "AcquisitionFrameRate",
-        "gain": "Gain",
-        "exposure": "ExposureTime",
-        "brightness": "Brightness",
-    }
+    PARAMS: ClassVar[list[str]] = [
+        "Width",
+        "Height",
+        "AcquisitionFrameRate",
+        "Gain",
+        "ExposureTime",
+        "Brightness",
+    ]
 
     @classmethod
     def initialize(cls):
@@ -76,7 +80,7 @@ class IDSCamera(CameraBase):
             # If the callback gets garbage collected it deregisters itself
             device_found_callback = self.device_manager.DeviceFoundCallback(
                 lambda found_device: logger.info(
-                    "Found-Device-Callback: Key={}".format(found_device.Key()),
+                    f"Found-Device-Callback: Key={found_device.Key()}",
                 )
             )
             device_found_callback_handle = (
@@ -96,7 +100,7 @@ class IDSCamera(CameraBase):
             # Exit program if no device was found
             if not self.device_manager.Devices():
                 logger.info("No device found.")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Exception: {e}")
 
     def open(self, serial: str) -> bool:
@@ -158,7 +162,7 @@ class IDSCamera(CameraBase):
                     ).WaitUntilDone()  # type: ignore
 
                     return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Exception: {e}")
         return False
 
@@ -188,7 +192,7 @@ class IDSCamera(CameraBase):
             # Unlock writeable nodes again
             self.remote_nodemap.FindNode("TLParamsLocked").SetValue(0)  # type: ignore
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Exception: {e}")
         finally:
             self.device = None
@@ -207,7 +211,7 @@ class IDSCamera(CameraBase):
             #       buffer's memory.
             self.data_stream.QueueBuffer(buffer)
             return True, img.get_numpy()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Exception: {e}")
             return False, None
 
@@ -216,16 +220,15 @@ class IDSCamera(CameraBase):
             if self.device is None:
                 return None
 
-            node_name = self.PARAMS.get(name)
-            if node_name is None:
+            if name is None:
                 return None
 
-            node = self.remote_nodemap.FindNode(node_name)
+            node = self.remote_nodemap.FindNode(name)
 
             val = node.Value()  # type: ignore
             return float(val)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"get_param error: {e}")
             return None
 
@@ -234,14 +237,130 @@ class IDSCamera(CameraBase):
             if self.device is None:
                 return False
 
-            node_name = self.PARAMS.get(name)
-            if node_name is None:
+            if name is None:
                 return False
 
-            node = self.remote_nodemap.FindNode(node_name)
+            node = self.remote_nodemap.FindNode(name)
             node.SetValue(value)  # type: ignore
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"set_param error: {e}")
             return False
+            return False
+
+    def _get_node(self, name):
+        if not self.device:
+            return None
+
+        try:
+            return self.remote_nodemap.FindNode(name)
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _get_node_range(self, node):
+        minimum = None
+        maximum = None
+        step = None
+
+        for attr, target in (
+            ("Minimum", "min"),
+            ("Maximum", "max"),
+            ("Increment", "step"),
+        ):
+            try:
+                value = getattr(node, attr)()
+                if target == "min":
+                    minimum = float(value)
+                elif target == "max":
+                    maximum = float(value)
+                else:
+                    step = float(value)
+            except Exception:  # noqa: BLE001, S110
+                pass
+
+        return minimum, maximum, step
+
+    def get_param_defs(self) -> dict[str, CameraParamDef]:
+        if self.device is None:
+            return {}
+
+        result = {}
+
+        for key in self.PARAMS:
+            try:
+                node = self._get_node(key)
+
+                if node is None:
+                    continue
+
+                value = self.get_param(key)
+
+                if value is None:
+                    continue
+
+                item = {
+                    "label": key,
+                    "type": "number",
+                    "value": value,
+                }
+
+                minimum, maximum, step = self._get_node_range(node)
+
+                if minimum is not None:
+                    item["min"] = minimum
+
+                if maximum is not None:
+                    item["max"] = maximum
+
+                if step is not None:
+                    item["step"] = step
+
+                if minimum is not None and maximum is not None:
+                    item["type"] = "range"
+
+                try:
+                    item["readonly"] = not node.IsWritable()
+                except Exception:  # noqa: BLE001
+                    item["readonly"] = False
+
+                # Enumeration
+                try:
+                    options = self._get_enum_options(node)
+
+                    if len(options) > 0:
+                        item["type"] = "select"
+                        item["options"] = options
+                except Exception:  # noqa: BLE001, S110
+                    pass
+
+                result[key] = item
+
+            except Exception as e:  # noqa: BLE001
+                logger.debug(
+                    f"Failed to get IDS parameter definition " f"{key}: {e}"
+                )
+
+        return result
+
+    def _get_enum_options(self, node):
+        options = []
+
+        try:
+            entries = node.Entries()
+
+            for entry in entries:
+                try:
+                    options.append(
+                        {
+                            "value": entry.StringValue(),
+                            "label": entry.StringValue(),
+                        }
+                    )
+                except Exception:  # noqa: BLE001, S112
+                    continue
+
+        except Exception:  # noqa: BLE001, S110
+            pass
+
+        return options
