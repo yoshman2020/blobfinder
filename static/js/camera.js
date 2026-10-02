@@ -187,7 +187,7 @@ function renderCameraParam(param) {
                         min="${param.min}"
                         max="${param.max}"
                         step="${param.step ?? 1}"
-                        oninput="updateCameraRange('${key}', this.value)"
+                        oninput="updateCameraFromRange('${key}', this.value)"
                     >
                     <input
                         type="number"
@@ -196,7 +196,7 @@ function renderCameraParam(param) {
                         min="${param.min}"
                         max="${param.max}"
                         step="${param.step ?? 1}"
-                        oninput="updateCameraRange('${key}', this.value)"
+                        oninput="updateCameraFromNumber('${key}', this.value)"
                     >
                     ${param.unit ? `<span>${param.unit}</span>` : ""}
                 </div>
@@ -241,14 +241,29 @@ function renderCameraParam(param) {
     `;
 }
 
-window.updateCameraRange = function (key, value) {
-    const range = document.getElementById(`cparam-${key}`);
+// スライダーを動かしたときは、数値入力側の値を追従させる
+window.updateCameraFromRange = function (key, value) {
     const number = document.getElementById(`cparam-${key}-value`);
+    if (number) {
+        number.value = value;
+    }
+};
 
-    if (!range || !number) return;
+// 数値入力を直接変更したとき
+window.updateCameraFromNumber = function (key, value) {
+    const range = document.getElementById(`cparam-${key}`);
+    if (!range) return;
 
-    range.value = value;
-    number.value = value;
+    // "." で終わる入力途中（例: "1."）や末尾がマイナス記号だけのときは、
+    // レンジ側を更新すると強制的に整数に丸められてしまうため、更新をスキップする
+    if (value.endsWith('.') || value === '-') {
+        return;
+    }
+
+    const num = Number(value);
+    if (!isNaN(num)) {
+        range.value = num;
+    }
 };
 
 export async function applyCamParams() {

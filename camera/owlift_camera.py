@@ -94,21 +94,21 @@ class OwliftCamera(CameraBase):
             "type": "range",
             "min": 0,
             "max": 100,
-            "step": 1,
+            "step": 0.01,
         },
         "manual_gain_max": {
             "label": "温度範囲(最高)(K)",
             "type": "range",
             "min": 0,
             "max": 100,
-            "step": 1,
+            "step": 0.01,
         },
         "noise_filter": {
             "label": "ノイズフィルタ",
             "type": "range",
             "min": 0,
             "max": 100,
-            "step": 1,
+            "step": 0.01,
         },
     }
 
