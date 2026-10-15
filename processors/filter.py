@@ -54,9 +54,11 @@ def bilateral(img, params, **kwargs):
 def threshold(img, params, **kwargs):
     img = ensure_gray(img)
     img = ensure_uint8(img)
-    value = params.get("value", 127)
-    _, th = cv2.threshold(img, value, 255, cv2.THRESH_BINARY)
-    return th
+    minvalue = params.get("minvalue", 0)
+    maxvalue = params.get("maxvalue", 255)
+    result = np.full_like(img, 255)
+    result[(img >= minvalue) & (img <= maxvalue)] = 0
+    return result
 
 
 @register("adaptive_threshold")

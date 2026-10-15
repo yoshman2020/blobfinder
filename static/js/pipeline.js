@@ -1,10 +1,10 @@
 // pipeline.js
 
-import { state, setStatus } from "./state.js";
-import { draw, startRegionSelect } from "./canvas.js";
 import { renderBlobList } from "./blob.js";
-import { loadImage } from "./image.js";
 import { captureFrame } from "./camera.js";
+import { draw } from "./canvas.js";
+import { loadImage } from "./image.js";
+import { setStatus, state } from "./state.js";
 
 const PROC_LABELS = {
     r: "R抽出", g: "G抽出", b: "B抽出", gray: "Gray変換",
@@ -29,7 +29,10 @@ const PARAM_DEFS = {
     gaussian: [{ key: "kernel", label: "Kernel", type: "number", step: 2, min: 1 }],
     median: [{ key: "kernel", label: "Kernel", type: "number", step: 2, min: 1 }],
     bilateral: [{ key: "kernel", label: "Kernel", type: "number", step: 2, min: 1 }],
-    threshold: [{ key: "value", label: "閾値", type: "number", step: 1, min: 0, max: 255 }],
+    threshold: [
+        { key: "minvalue", label: "閾値", type: "number", step: 1, min: 0, max: 255 },
+        { key: "maxvalue", label: "～", type: "number", step: 1, min: 0, max: 255 },
+    ],
     adaptive_threshold: [
         { key: "block", label: "Block", type: "number", step: 2, min: 3 },
         { key: "c", label: "C", type: "number", step: 1 },
@@ -126,7 +129,7 @@ export function renderPipeline() {
         let paramsHtml = "";
         const defs = PARAM_DEFS[step.type] || [];
         if (defs.some((d) => d.type === "checkbox")) {
-          paramsHtml = "<div>";
+            paramsHtml = "<div>";
         }
         defs.forEach((def) => {
             const val = step.params[def.key] ?? "";
@@ -152,7 +155,7 @@ export function renderPipeline() {
             }
         });
         if (defs.some((d) => d.type === "checkbox")) {
-          paramsHtml += "</div>";
+            paramsHtml += "</div>";
         }
 
         div.innerHTML = `<span class="drag-handle">☰</span>
